@@ -16,6 +16,7 @@ import AEPEdge
 import AEPEdgeIdentity
 import AEPLifecycle
 import AEPAnalytics
+import AEPIdentity
 import UIKit
 
 @UIApplicationMain
@@ -28,7 +29,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         MobileCore.setLogLevel(.trace)
         MobileCore.configureWith(appId: LAUNCH_ENVIRONMENT_FILE_ID)
-        MobileCore.registerExtensions([Identity.self, Edge.self, Assurance.self, Lifecycle.self, Analytics.self])
+        MobileCore.registerExtensions([AEPIdentity.Identity.self, AEPEdgeIdentity.Identity.self, Edge.self, Assurance.self, Lifecycle.self, Analytics.self])
         
         if application.applicationState != .background {
             MobileCore.lifecycleStart(additionalContextData: nil)
