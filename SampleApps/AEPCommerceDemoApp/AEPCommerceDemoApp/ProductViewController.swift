@@ -11,6 +11,8 @@
 //
 
 import UIKit
+import AEPAnalytics
+import AEPCore
 
 var adbMobileShoppingCart = ShoppingCart()
 
@@ -87,7 +89,9 @@ class ProductViewController: UIViewController {
 
         let message = "\(product.quantity) quantities of " + product.productData.name + AEPDemoConstants.Strings.itemAddedMsg
         snackbar(message: message)
-        CommerceUtil.sendProductListAddXdmEvent(productData: prodData, quantity: qtyOrdered)
+        //CommerceUtil.sendProductListAddXdmEvent(productData: prodData, quantity: qtyOrdered)
+        
+        MobileCore.track(action: "testaction", data: nil)
     }
 }
 
