@@ -57,47 +57,47 @@ class EdgeEndpointTests: XCTestCase {
     }
 
     func testDefaultProductionEndpoint() {
-        let endpoint = EdgeEndpoint(type: .production)
+        let endpoint = EdgeEndpoint(environmentType: .production)
         let expected = "https://\(EdgeConstants.NetworkKeys.EDGE_DEFAULT_DOMAIN)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH)"
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testDefaultPreProductionEndpoint() {
-        let endpoint = EdgeEndpoint(type: .preProduction)
+        let endpoint = EdgeEndpoint(environmentType: .preProduction)
         let expected = "https://\(EdgeConstants.NetworkKeys.EDGE_DEFAULT_DOMAIN)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PRE_PRODUCTION_PATH)"
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testDefaultIntegrationEndpoint() {
-        let endpoint = EdgeEndpoint(type: .integration)
+        let endpoint = EdgeEndpoint(environmentType: .integration)
         let expected = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_INTEGRATION
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testCustomProductionEndpoint() {
         let domain = "my.awesome.site"
-        let endpoint = EdgeEndpoint(type: .production, optionalDomain: domain)
+        let endpoint = EdgeEndpoint(environmentType: .production, optionalDomain: domain)
         let expected = "https://\(domain)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH)"
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testCustomPreProductionEndpoint() {
         let domain = "my.awesome.site"
-        let endpoint = EdgeEndpoint(type: .preProduction, optionalDomain: domain)
+        let endpoint = EdgeEndpoint(environmentType: .preProduction, optionalDomain: domain)
         let expected = "https://\(domain)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PRE_PRODUCTION_PATH)"
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testCustomIntegrationEndpoint() {
         let domain = "my.awesome.site"
-        let endpoint = EdgeEndpoint(type: .integration, optionalDomain: domain)
+        let endpoint = EdgeEndpoint(environmentType: .integration, optionalDomain: domain)
         let expected = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_INTEGRATION
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }
 
     func testCustomEmptyDomainUsesDefault() {
         let domain = ""
-        let endpoint = EdgeEndpoint(type: .production, optionalDomain: domain)
+        let endpoint = EdgeEndpoint(environmentType: .production, optionalDomain: domain)
         let expected = "https://\(EdgeConstants.NetworkKeys.EDGE_DEFAULT_DOMAIN)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH)"
         XCTAssertEqual(expected, endpoint.endpointUrl)
     }

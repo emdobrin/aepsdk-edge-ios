@@ -39,7 +39,7 @@ struct EdgeEndpoint {
     /// - Parameters:
     ///   - type: the `EdgeEnvironmentType` for the `EdgeEndpoint`
     ///   - optionalDomain: an optional custom domain for the `EdgeEndpoint`. If not set the default domain is used.
-    init(type: EdgeEnvironmentType, optionalDomain: String? = nil) {
+    init(environmentType: EdgeEnvironmentType, optionalDomain: String? = nil) {
         let domain: String
         if let unwrappedDomain = optionalDomain, !unwrappedDomain.isEmpty {
             domain = unwrappedDomain
@@ -47,7 +47,7 @@ struct EdgeEndpoint {
             domain = EdgeConstants.NetworkKeys.EDGE_DEFAULT_DOMAIN
         }
 
-        switch type {
+        switch environmentType {
         case .production:
             endpointUrl = "https://\(domain)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH)"
         case .preProduction:

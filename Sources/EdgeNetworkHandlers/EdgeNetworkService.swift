@@ -14,10 +14,10 @@ import AEPCore
 import AEPServices
 import Foundation
 
-/// ExperienceEdge Request Types:
+/// Edge Network request type:
 ///     - interact - makes request and expects a response
 ///     - consent - sets user consent and expects a response
-enum ExperienceEdgeRequestType: String {
+enum EdgeRequestType: String {
     case interact
     case consent = "privacy/set-consent"
 }
@@ -48,14 +48,14 @@ class EdgeNetworkService {
     private var defaultHeaders = [EdgeConstants.NetworkKeys.HEADER_KEY_ACCEPT: EdgeConstants.NetworkKeys.HEADER_VALUE_APPLICATION_JSON,
                                   EdgeConstants.NetworkKeys.HEADER_KEY_CONTENT_TYPE: EdgeConstants.NetworkKeys.HEADER_VALUE_APPLICATION_JSON]
 
-    /// Builds the URL required for connections to Experience Edge with the provided `ExperienceEdgeRequestType`
+    /// Builds the URL required for connections to Experience Edge with the provided `EdgeRequestType`
     /// - Parameters:
-    ///   - requestType: see `ExperienceEdgeRequestType`
+    ///   - requestType: see `EdgeRequestType`
     ///   - configId: Edge configuration identifier
     ///   - requestId: batch request identifier
     ///   - edgeEndpoint: the endpoint for this URL to be based off of
     /// - Returns: built URL or nil on error
-    func buildUrl(requestType: ExperienceEdgeRequestType, configId: String, requestId: String, edgeEndpoint: EdgeEndpoint) -> URL? {
+    func buildUrl(requestType: EdgeRequestType, configId: String, requestId: String, edgeEndpoint: EdgeEndpoint) -> URL? {
         guard var url = URL(string: edgeEndpoint.endpointUrl) else { return nil }
         url.appendPathComponent(requestType.rawValue)
 

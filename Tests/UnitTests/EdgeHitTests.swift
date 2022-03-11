@@ -18,7 +18,7 @@ class EdgeHitTests: XCTestCase {
     private let CONFIG_ID = "testConfigId"
     private let EDGE_REQUEST = EdgeRequest(meta: nil, xdm: nil, events: [["test": "data"]])
     private let CONSENT_UPDATE_REQUEST = EdgeConsentUpdate(meta: nil, identityMap: nil, consent: [EdgeConsentPayload(standard: "Adobe", version: "2.0", value: ["consent": ["collect": "y"]])])
-    private let ENDPOINT_PROD = EdgeEndpoint(type: .production)
+    private let ENDPOINT_PROD = EdgeEndpoint(environmentType: .production)
     override func setUp() {
         continueAfterFailure = false
     }
@@ -79,7 +79,7 @@ class EdgeHitTests: XCTestCase {
 
     func testExperienceEventsEdgeHit_getType() {
         let edgeHit = ExperienceEventsEdgeHit(edgeEndpoint: ENDPOINT_PROD, configId: CONFIG_ID, request: EDGE_REQUEST)
-        XCTAssertEqual(ExperienceEdgeRequestType.interact, edgeHit.getType())
+        XCTAssertEqual(EdgeRequestType.interact, edgeHit.getType())
     }
 
     // MARK: ConsentEgeHit tests
@@ -138,7 +138,7 @@ class EdgeHitTests: XCTestCase {
 
     func testConsentEdgeHit_getType() {
         let edgeHit = ConsentEdgeHit(edgeEndpoint: ENDPOINT_PROD, configId: CONFIG_ID, consents: CONSENT_UPDATE_REQUEST)
-        XCTAssertEqual(ExperienceEdgeRequestType.consent, edgeHit.getType())
+        XCTAssertEqual(EdgeRequestType.consent, edgeHit.getType())
     }
 
     func testConsentEdgeHit_getStreamingSettings_streamingNotEnabled() {
