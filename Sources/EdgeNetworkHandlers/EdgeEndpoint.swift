@@ -33,11 +33,11 @@ enum EdgeEnvironmentType: String {
 }
 
 struct EdgeEndpoint {
-    let endpointUrl: String
+    let url: URL?
 
     /// Initializes the appropriate `EdgeEndpoint` for the given `type` and `optionalDomain`
     /// - Parameters:
-    ///   - type: the `EdgeEnvironmentType` for the `EdgeEndpoint`
+    ///   - environmentType: the `EdgeEnvironmentType` for the `EdgeEndpoint`
     ///   - optionalDomain: an optional custom domain for the `EdgeEndpoint`. If not set the default domain is used.
     init(environmentType: EdgeEnvironmentType, optionalDomain: String? = nil) {
         let domain: String
@@ -47,14 +47,22 @@ struct EdgeEndpoint {
             domain = EdgeConstants.NetworkKeys.EDGE_DEFAULT_DOMAIN
         }
 
+        var components = URLComponents()
+        components.scheme = EdgeConstants.NetworkKeys.HTTPS
+
         switch environmentType {
         case .production:
-            endpointUrl = "https://\(domain)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH)"
+            components.host = domain
+            components.path = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH
         case .preProduction:
-            endpointUrl = "https://\(domain)\(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PRE_PRODUCTION_PATH)"
+            components.host = domain
+            components.path = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PRE_PRODUCTION_PATH
         case .integration:
             // Edge Integration endpoint does not support custom domains, so there is just the one URL
-            endpointUrl = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_INTEGRATION
+            components.host = EdgeConstants.NetworkKeys.EDGE_INTEGRATION_DOMAIN
+            components.path = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH
         }
+
+        url = components.url
     }
 }

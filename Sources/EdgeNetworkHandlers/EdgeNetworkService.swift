@@ -56,7 +56,7 @@ class EdgeNetworkService {
     ///   - edgeEndpoint: the endpoint for this URL to be based off of
     /// - Returns: built URL or nil on error
     func buildUrl(requestType: EdgeRequestType, configId: String, requestId: String, edgeEndpoint: EdgeEndpoint) -> URL? {
-        guard var url = URL(string: edgeEndpoint.endpointUrl) else { return nil }
+        guard var url = edgeEndpoint.url else { return nil }
         url.appendPathComponent(requestType.rawValue)
 
         guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
