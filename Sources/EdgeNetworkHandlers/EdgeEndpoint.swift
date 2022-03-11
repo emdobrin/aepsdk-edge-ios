@@ -37,9 +37,13 @@ struct EdgeEndpoint {
 
     /// Initializes the appropriate `EdgeEndpoint` for the given `type` and `optionalDomain`
     /// - Parameters:
+    ///   - requestType: the `EdgeRequestType` to be used
     ///   - environmentType: the `EdgeEnvironmentType` for the `EdgeEndpoint`
     ///   - optionalDomain: an optional custom domain for the `EdgeEndpoint`. If not set the default domain is used.
-    init(environmentType: EdgeEnvironmentType, optionalDomain: String? = nil) {
+    init(requestType: EdgeRequestType,
+         environmentType: EdgeEnvironmentType,
+         optionalDomain: String? = nil,
+         optionalCustomPath: String? = nil) {
         let domain: String
         if let unwrappedDomain = optionalDomain, !unwrappedDomain.isEmpty {
             domain = unwrappedDomain
@@ -61,6 +65,14 @@ struct EdgeEndpoint {
             // Edge Integration endpoint does not support custom domains, so there is just the one URL
             components.host = EdgeConstants.NetworkKeys.EDGE_INTEGRATION_DOMAIN
             components.path = EdgeConstants.NetworkKeys.EDGE_ENDPOINT_PATH
+        }
+
+        // todo: treat custom paths
+        if let customPath = optionalCustomPath {
+            components.path.append(customPath)
+        } else {
+            components.path.append(EdgeConstants.NetworkKeys.EDGE_ENDPOINT_VERSION_PATH)
+            components.path.append("/\(requestType.rawValue)")
         }
 
         url = components.url

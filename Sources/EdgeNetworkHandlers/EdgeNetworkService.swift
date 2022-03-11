@@ -57,11 +57,14 @@ class EdgeNetworkService {
     /// - Returns: built URL or nil on error
     func buildUrl(requestType: EdgeRequestType, configId: String, requestId: String, edgeEndpoint: EdgeEndpoint) -> URL? {
         guard var url = edgeEndpoint.url else { return nil }
-        url.appendPathComponent(requestType.rawValue)
+        // url.appendPathComponent(requestType.rawValue)
 
         guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        urlComponents.queryItems = [URLQueryItem(name: EdgeConstants.NetworkKeys.REQUEST_PARAM_CONFIG_ID, value: configId),
-                                    URLQueryItem(name: EdgeConstants.NetworkKeys.REQUEST_PARAM_REQUEST_ID, value: requestId)]
+        urlComponents.queryItems = [
+            URLQueryItem(name: EdgeConstants.NetworkKeys.REQUEST_PARAM_CONFIG_ID,
+                         value: configId),
+            URLQueryItem(name: EdgeConstants.NetworkKeys.REQUEST_PARAM_REQUEST_ID,
+                         value: requestId)]
 
         return urlComponents.url
     }
