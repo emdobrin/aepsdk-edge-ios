@@ -16,11 +16,9 @@ import Foundation
 
 /// ExperienceEdge Request Types:
 ///     - interact - makes request and expects a response
-///     - collect - makes request without expecting a response
 ///     - consent - sets user consent and expects a response
 enum ExperienceEdgeRequestType: String {
     case interact
-    case collect
     case consent = "privacy/set-consent"
 }
 
@@ -183,20 +181,19 @@ class EdgeNetworkService {
 
         switch responseCode {
         case HttpResponseCodes.ok.rawValue:
-            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Interact connection to Experience Edge was successful.")
+            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Connection to Experience Edge was successful.")
             self.handleContent(connection: connection,
                                streaming: streaming,
                                responseCallback: responseCallback)
             responseCallback.onComplete()
             completion(true, nil) // successful request, return true
         case HttpResponseCodes.noContent.rawValue:
-            // Successful collect requests do not return content
-            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Collect connection to Experience Edge was successful.")
+            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Connection to Experience Edge was successful, no content returned.")
             responseCallback.onComplete()
             completion(true, nil) // successful request, return true
         case HttpResponseCodes.multiStatus.rawValue:
             Log.debug(label: EdgeConstants.LOG_TAG,
-                      "\(SELF_TAG) - Connection to Experience Edge was successful but encountered non-fatal errors/warnings. \(responseCode)")
+                      "\(SELF_TAG) - Connection to Experience Edge was successful, but encountered non-fatal errors/warnings. \(responseCode)")
             self.handleContent(connection: connection,
                                streaming: streaming,
                                responseCallback: responseCallback)
