@@ -14,6 +14,6 @@
 * [Event reference](./ExtensionDeveloper/event-reference.md)
 * Architecture overview - coming soon
 * Supported features
-  * Events persistence and failover mechanism
+  * [Events persistence and failover mechanism](./ExtensionDeveloper/Features/events-persistence.md)
   * Edge Network APIs
-  * Edge Network environments
+  * [Edge Network environments](./ExtensionDeveloper/Features/edge-network-environments.md)
