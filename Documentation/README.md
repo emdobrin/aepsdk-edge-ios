@@ -11,9 +11,15 @@
   * Coming soon
 
 ### Extension developer documentation
-* [Event reference](./ExtensionDeveloper/event-reference.md)
-* Architecture overview - coming soon
+* Architecture
+  * Components
+  * Services used
+  * Utilities, constants
+* Extension data reference
+  * [Event reference](./ExtensionDeveloper/event-reference.md)
+  * [Shared state reference](./ExtensionDeveloper/shared-state-reference.md)
+  * [Configuration keys](./ExtensionDeveloper/config-reference.md)
 * Supported features
   * [Events persistence and failover mechanism](./ExtensionDeveloper/Features/events-persistence.md)
-  * Edge Network APIs
+  * [Edge Network APIs integration](./ExtensionDeveloper/Features/edge-network-apis-integration.md)
   * [Edge Network environments](./ExtensionDeveloper/Features/edge-network-environments.md)
