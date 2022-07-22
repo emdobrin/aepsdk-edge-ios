@@ -23,3 +23,6 @@
   * [Events persistence and failover mechanism](./ExtensionDeveloper/Features/events-persistence.md)
   * [Edge Network APIs integration](./ExtensionDeveloper/Features/edge-network-apis-integration.md)
   * [Edge Network environments](./ExtensionDeveloper/Features/edge-network-environments.md)
+* Contributing guidelines
+  * [Release process](./ExtensionDeveloper/ContributingGuidelines/release-process.md)
+  * [Testing strategy](./ExtensionDeveloper/ContributingGuidelines/testing-strategy.md)
