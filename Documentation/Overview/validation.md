@@ -1,4 +1,4 @@
-# Enable validation workflows with Adobe Experience Platform Assurance
+# Enable validation workflows for Edge with Adobe Experience Platform Assurance
 
 Assurance (also known as Project Griffon) is a new, innovative product from Adobe to help you inspect, proof, simulate, and validate data collection and experiences for your mobile application.
 

@@ -2,27 +2,32 @@
 
 ## Contents
 
-### App developer documentation
-* [Getting started](./AppDeveloper/getting-started.md)
-* [API reference](./AppDeveloper/api-reference.md)
-* [Extension integrations](./AppDeveloper/integrations.md)
-* [Validation with AEPAssurance](./AppDeveloper/validation.md)
-* Tutorials
-  * Coming soon
+### Overview
+* [Getting started](./Overview/getting-started.md)
+* [API reference](./Overview/api-reference.md)
+* [Extension integrations](./Overview/integrations.md)
+* [Validation with AEPAssurance](./Overview/validation.md)
 
-### Extension developer documentation
-* Architecture
+### Tutorials
+  * End to end tutorial 1
+  * End to end tutorial 2
+    Coming soon
+
+### Advanced extension documentation
+* Architecture overview
   * Components
   * Services used
   * Utilities, constants
 * Extension data reference
-  * [Event reference](./ExtensionDeveloper/ExtensionDataReference/event-reference.md)
-  * [Shared state reference](./ExtensionDeveloper/ExtensionDataReference/shared-state-reference.md)
-  * [Configuration keys](./ExtensionDeveloper/ExtensionDataReference/config-reference.md)
-* Supported features
-  * [Events persistence and failover mechanism](./ExtensionDeveloper/Features/events-persistence.md)
-  * [Edge Network APIs integration](./ExtensionDeveloper/Features/edge-network-apis-integration.md)
-  * [Edge Network environments](./ExtensionDeveloper/Features/edge-network-environments.md)
-* Contributing guidelines
-  * [Release process](./ExtensionDeveloper/ContributingGuidelines/release-process.md)
-  * [Testing strategy](./ExtensionDeveloper/ContributingGuidelines/testing-strategy.md)
+  * [Event reference](./Advanced/ExtensionDataReference/event-reference.md)
+  * [Shared state reference](./Advanced/ExtensionDataReference/shared-state-reference.md)
+  * [Configuration keys](./Advanced/ExtensionDataReference/config-reference.md)
+* Frequently asked questions
+  * [Events persistence and failover mechanism](./Advanced/FAQ/events-persistence.md)
+  * [How does the Edge request look like](./Advanced/FAQ/edge-network-apis-integration.md)
+  * [Edge Network environments](./Advanced/FAQ/edge-network-environments.md)
+
+### Contributing to this repo
+  * [Contributing guidelines](../.github/CONTRIBUTING.md)
+  * [Release process](./Contributing/release-process.md)
+  * [Testing strategy](./Contributing/testing-strategy.md)

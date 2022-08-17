@@ -28,5 +28,3 @@ The Lifecycle extension enables application lifecycle data collection from your 
 > The lifecycle data collection needs to be explicitly enabled in your Data Collection tag (mobile property) and requires the MobileCore.lifecycleStart and MobileCore.lifecyclePause APIs to be implemented. This feature requires AEPCore and AEPLifecycle v3.5.0 and above.
 > - [Enable Lifecycle events forwarding in Data Collection UI](https://aep-sdks.gitbook.io/docs/foundation-extensions/lifecycle-for-edge-network)
 > - [Register Lifecycle and add appropriate start/pause calls](https://aep-sdks.gitbook.io/docs/foundation-extensions/mobile-core/lifecycle).
-
-## Edge Bridge (Beta)
