@@ -1,4 +1,4 @@
-# Edge Network environments
+# Does Edge mobile extension support Edge environments
 
 The Edge extension has built-in support to allow for changing between the Edge Network environments for testing purposes. This feature becomes helpful for testing a new feature or a bug fix prior to a production release.
 By default the Edge extension uses the production Edge Network endpoints. It is not recommended to switch the environment in a production application.

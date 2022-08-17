@@ -1,4 +1,4 @@
-# Edge Network APIs integration
+# How should my Edge request look like
 
 The Edge mobile extension handles multiple types of events that are delivered to the Adobe Edge Network through network calls.
 

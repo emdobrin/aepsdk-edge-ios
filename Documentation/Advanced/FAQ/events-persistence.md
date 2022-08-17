@@ -1,6 +1,6 @@
-# Events persistence and failover mechanism
+# Does the Edge mobile extension support offline tracking and how does it work
 
-The Edge extension uses a persistent hit queue in order to temporarily store the events until the network request successfully delivered them to the Adobe Edge Network.
+Short answer is yes, offline tracking is supported. The Edge extension uses a persistent hit queue in order to temporarily store the events until the network request successfully delivered them to the Adobe Edge Network.
 
 ## Use-cases for which a queueing mechanism is required
 
