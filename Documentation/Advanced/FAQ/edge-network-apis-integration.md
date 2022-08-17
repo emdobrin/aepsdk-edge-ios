@@ -114,3 +114,5 @@ https://example.data.adobedc.net/ee/v1/privacy/set-consent?configId=datastreamId
   ]
 }
 ```
+
+For more details, see also the [Edge Network Server API overview](https://experienceleague.adobe.com/docs/experience-platform/edge-network-server-api/overview.html).
