@@ -9,6 +9,7 @@ body:
     options:
     - label: I have searched in this repository's issues to see if it has already been reported.
       required: true
+
 - type: textarea
   attributes:
     label: Task description
