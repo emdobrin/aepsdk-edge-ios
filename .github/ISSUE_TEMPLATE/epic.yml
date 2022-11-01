@@ -1,12 +1,12 @@
 name: Epic
 description: Create an internal epic that represents the top level parent of multiple tasks.
 title: "[Epic] <title>"
-labels: [epic]
+labels: [epic, edgesquad]
 
 body:
 - type: checkboxes
   attributes:
-    label:  Before Logging a feature request
+    label:  Before logging a feature request
     options:
     - label: I have searched in this repository's issues to see if it has already been reported.
       required: true
@@ -25,8 +25,8 @@ body:
   id: tasks
   attributes:
     label: Tasks
-    description: Provide a high-level DoD for this epic as a list of tasks that need to be completed.
+    description: Provide a high-level definition of done for this epic as a list of tasks that need to be completed.
     placeholder: |
-      - [ ] your task here
+      - [ ] your task link here
   validations:
     required: false

@@ -1,7 +1,7 @@
 name: Bug report
 description: Create a bug report to help us improve. Use this template if you encountered an issue while integrating with or implementing the APIs of this SDK.
 title: "[Bug] <title>"
-labels: [bug, triage-required, edgesquad]
+labels: [bug, triage-required]
 
 body:
 - type: checkboxes
@@ -25,13 +25,29 @@ body:
 
 - type: textarea
   attributes:
+    label: Environment
+    description: |
+      examples:
+        - **OS**: iOS 15.5
+        - **SDK(s)**: AEPEdge 1.4.0, AEPCore 1.7.0
+        - **IDE**: Xcode 13.4
+    value: |
+        - OS:
+        - SDK(s):
+        - IDE:
+    render: markdown
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
     label: Steps to reproduce
     description: Steps to reproduce the behavior.
     placeholder: |
-      1. In this environment...
-      2. With this config...
-      3. Run '...'
-      4. See error...
+      1. ...
+      2. ...
+      3. ...
+      4. ...
   validations:
     required: false
 
@@ -48,22 +64,6 @@ body:
     description: A concise description of what you expected to happen.
   validations:
     required: false
-
-- type: textarea
-  attributes:
-    label: Environment
-    description: |
-      examples:
-        - **OS**: iOS 15.5
-        - **SDK**: AEPEdge 1.4.0
-        - **IDE**: Xcode 13.4
-    value: |
-        - OS:
-        - SDK:
-        - IDE:
-    render: markdown
-  validations:
-    required: true
 
 - type: textarea
   attributes:
