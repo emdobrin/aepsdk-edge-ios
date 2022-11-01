@@ -1,50 +1,76 @@
----
-name: Bug Report
-about: Create a report to help us improve
-labels: bug
----
-## Prerequisites
-<!--- Go through the items below before logging an issue -->
-- [ ] I have searched in this repository's issues to see if it has already been reported.
-- [ ] This is not a Security Disclosure, otherwise please follow the guidelines in [Security Policy](https://github.com/adobe/aepsdk-edge-ios/security/policy).
-- [ ] I have updated to the latest released version of the SDK and the issue still persists.
+name: Bug report
+description: Create a bug report to help us improve. Use this template if you encountered an issue while integrating with or implementing the APIs of this SDK.
+title: "[Bug] <title>"
+labels: [bug, triage-required, edgesquad]
 
-## Bug Summary
+body:
+- type: checkboxes
+  attributes:
+    label:  Prerequisites
+    description: Go through the items below before logging an issue.
+    options:
+    - label: I have searched in this repository's issues to see if it has already been reported.
+      required: true
+    - label: This is not a Security Disclosure, otherwise please follow the guidelines in [Security Policy](https://github.com/adobe/aepsdk-edge-ios/security/policy).
+      required: true
+    - label: I have updated to the latest released version of the SDK and the issue still persists.
+      required: true
 
-<!---Please provide a summary of the bug you are reporting-->
+- type: textarea
+  attributes:
+    label: Bug summary
+    description: Please provide a summary of the bug you are reporting.
+  validations:
+    required: true
 
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    description: Steps to reproduce the behavior.
+    placeholder: |
+      1. In this environment...
+      2. With this config...
+      3. Run '...'
+      4. See error...
+  validations:
+    required: false
 
-## Steps to Reproduce
+- type: textarea
+  attributes:
+    label: Current behavior
+    description: A concise description of what you're experiencing.
+  validations:
+    required: false
 
-1.
-2.
-3.
+- type: textarea
+  attributes:
+    label: Expected behavior
+    description: A concise description of what you expected to happen.
+  validations:
+    required: false
 
-## Expected Behavior
+- type: textarea
+  attributes:
+    label: Environment
+    description: |
+      examples:
+        - **OS**: iOS 15.5
+        - **SDK**: AEPEdge 1.4.0
+        - **IDE**: Xcode 13.4
+    value: |
+        - OS:
+        - SDK:
+        - IDE:
+    render: markdown
+  validations:
+    required: true
 
-<!---What is the expected behavior?-->
+- type: textarea
+  attributes:
+    label: Anything else?
+    description: |
+      Sample Code that illustrates the problem, logs taken while reproducing the problem, or anything that will give us more context about the issue you are encountering.
 
-## Actual Behavior
-
-<!---What is the Actual behavior you see?-->
-
-## Platform and Version
-
-Which platform and OS version?
-Which SDK version(s)?
-Which IDE version?
-
-## Sample Code that illustrates the problem
-<!---Please provide sample code below or provide a link with the sample code to help us investigate the bug-->
-
-```swift
-// sample code
-
-```
-## Logs taken while reproducing the problem
-<!---Please provide Trace Console Log below or provide a link with the log to help us look into the issue-->
-
-```
-//logs
-
-```
+      Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in.
+  validations:
+    required: false

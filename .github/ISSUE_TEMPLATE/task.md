@@ -1,0 +1,24 @@
+name: Task
+description: Create an internal task that can be completed as a standalone code change or is part of an epic.
+title: "[Task] <title>"
+labels: [task, edgesquad]
+body:
+- type: checkboxes
+  attributes:
+    label: Before logging a task
+    options:
+    - label: I have searched in this repository's issues to see if it has already been reported.
+      required: true
+- type: textarea
+  attributes:
+    label: Task description
+    description: Please provide a summary or the "what" of the task logged.
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: Additional implementation details or code snippet(s)
+    description: Provide additional information about this task, implementation details or code snippets.
+  validations:
+    required: false

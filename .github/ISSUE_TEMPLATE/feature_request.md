@@ -1,7 +1,7 @@
 ---
-name: Feature Request
+name: Feature request
 about: Suggest an idea for this project
-labels: feature-request
+labels: feature-request, triage_required
 ---
 ##  Before Logging a feature request
 - [ ] I have searched in this repository's issues to see if it has already been reported.

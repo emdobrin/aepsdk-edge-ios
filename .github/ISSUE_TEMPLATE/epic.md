@@ -1,0 +1,32 @@
+name: Epic
+description: Create an internal epic that represents the top level parent of multiple tasks.
+title: "[Epic] <title>"
+labels: [epic]
+
+body:
+- type: checkboxes
+  attributes:
+    label:  Before Logging a feature request
+    options:
+    - label: I have searched in this repository's issues to see if it has already been reported.
+      required: true
+    - label: This is not a Security Disclosure, otherwise please follow the guidelines in [Security Policy](https://github.com/adobe/aepsdk-edge-ios/security/policy).
+      required: true
+
+- type: textarea
+  id: description
+  attributes:
+    label: Epic description
+    description: Please provide a detailed description for this epic.
+  validations:
+    required: true
+
+- type: textarea
+  id: tasks
+  attributes:
+    label: Tasks
+    description: Provide a high-level DoD for this epic as a list of tasks that need to be completed.
+    placeholder: |
+      - [ ] your task here
+  validations:
+    required: false
