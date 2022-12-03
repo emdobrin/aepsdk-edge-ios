@@ -9,13 +9,11 @@
 * [Validation with AEPAssurance](Overview/validation.md)
 
 ### Tutorials
-[Tutorials](Tutorials/README.md)
+* [Implementing the Edge extension to send event data to the Edge Network](Tutorials/edge-send-event-tutorial.md)
 
 ### Advanced extension documentation
 * Architecture overview
-  * Components
-  * Services used
-  * Utilities, constants, others
+  * Coming soon
 * Extension data reference
   * [Event reference](Advanced/ExtensionDataReference/event-reference.md)
   * [Shared state reference](Advanced/ExtensionDataReference/shared-state-reference.md)
@@ -27,6 +25,6 @@
 
 ### Contributing to this repo
   * [Contributing guidelines](../.github/CONTRIBUTING.md)
-  * [Code style](./Contributing/code-style.md)
-  * [Release process](./Contributing/release-process.md)
-  * [Testing strategy](./Contributing/testing-strategy.md)
+  * [Code style](Contributing/code-style.md)
+  * [Release process](Contributing/release-process.md)
+  * [Testing strategy](Contributing/testing-strategy.md)
