@@ -87,7 +87,7 @@ jobs:
       # verify XCFramework archive builds
       # ci-archive updates Pods so run this step last
       - run:
-          name: Build XCFramework
+          name: Build the XCFramework
           command: |
             if [[ "${CIRCLE_BRANCH}" == "main" || "${CIRCLE_BRANCH}" == "staging" ]]; then
               make ci-archive
