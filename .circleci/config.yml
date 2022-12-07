@@ -25,7 +25,7 @@ jobs:
             - 1-gems-{{ checksum "Gemfile.lock" }}
 
       # make sure we're on the right version of cocoapods
-      - run:
+      name: Build XCFramework
           name: Verify Cocoapods Version
           command: bundle check || bundle install --path vendor/bundle
 
@@ -43,7 +43,7 @@ jobs:
             - cocoapods-cache-v5
 
       # install CocoaPods - using default CocoaPods version, not the bundle
-      - run:
+      name: Build XCFramework
           name: Repo Update & Install CocoaPods
           command: make ci-pod-install
 
@@ -55,21 +55,21 @@ jobs:
             - ./Pods
             - ~/.cocoapods
 
-      - run:
+      name: Build XCFramework
           name: Lint Source Code
           command: make lint
 
       # pre-start the simulator to prevent timeouts
-      - run:
+      name: Build XCFramework
           name: Pre-start Simulator
           command: xcrun instruments -w "iPhone 8 (13.5) [" || true
 
-      - run:
+      name: Build XCFramework
           name: Run Tests
           command: make test
 
       # code coverage
-      - run:
+      name: Build XCFramework
           name: Upload Code Coverage Report
           command: |
             curl -s https://codecov.io/bash > codecov;
@@ -86,7 +86,7 @@ jobs:
 
       # verify XCFramework archive builds
       # ci-archive updates Pods so run this step last
-      - run:
+      name: Build XCFramework
           name: Build XCFramework
           command: |
             if [[ "${CIRCLE_BRANCH}" == "main" || "${CIRCLE_BRANCH}" == "staging" ]]; then
