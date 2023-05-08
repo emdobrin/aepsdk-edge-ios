@@ -21,7 +21,7 @@ public class Edge: NSObject, Extension {
     private var networkResponseHandler: NetworkResponseHandler?
     internal var state: EdgeState?
 
-    // MARK: The extension class 
+    // MARK: The extension
     public let name = EdgeConstants.EXTENSION_NAME
     public let friendlyName = EdgeConstants.FRIENDLY_NAME
     public static let extensionVersion = EdgeConstants.EXTENSION_VERSION
