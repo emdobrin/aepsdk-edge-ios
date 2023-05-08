@@ -1,0 +1,13 @@
+on: 
+  pull_request:
+    types: [opened, reopened, synchronize, assigned, edited, ready_for_review]
+
+jobs:
+  trigger-circleci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CircleCI trigger for pull requests checks
+        id: trigger-circleci
+        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.1.0
+        env:
+          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
