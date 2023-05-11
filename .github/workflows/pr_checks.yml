@@ -1,6 +1,13 @@
 on: 
   pull_request:
     types: [opened, reopened, synchronize, assigned, edited, ready_for_review]
+    paths-ignore: 
+      - '.github/**'
+      - '.circleci/**'
+      - 'Documentation/**'
+      - 'Script/**'
+      - '*.md'
+
 
 jobs:
   trigger-circleci:
