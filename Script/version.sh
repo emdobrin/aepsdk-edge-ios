@@ -2,6 +2,7 @@
 
 set -e
 
+
 if which jq >/dev/null; then
     echo "jq is installed"
 else
