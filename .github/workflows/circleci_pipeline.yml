@@ -2,7 +2,7 @@ name: PR Checks (CircleCI)
 run-name: PR Checks (CircleCI)
 on:
   workflow_run:
-    workflows: ["PR Opened"]
+    workflows: [PR Opened]
     types:
       - completed
 
