@@ -1,9 +1,9 @@
-name: PR Checks (CircleCI)
-run-name: PR Checks (CircleCI)
-on: 
-  pull_request_target:
+name: PR Opened
+run-name: PR Opened
+on:
+  pull_request:
     types: [opened, reopened, synchronize, assigned, edited, ready_for_review]
-    paths-ignore: 
+    paths-ignore:
       - '.circleci/**'
       - '.githooks/**'
       - '.github/**'
@@ -13,57 +13,11 @@ on:
       - '*.md'
 
 jobs:
-  pr-checks-circleci:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: CircleCI trigger for pull requests checks
-        id: trigger-circleci
-        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.1.0
-        env:
-          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
+      - uses: actions/checkout@v2
 
-      - name: Wait CircleCI pipeline status
-        id: wait-circleci
+      - name: PR opened with number
         run: |
-          echo CircleCI pipeline triggered with ID $PIPELINE_ID, waiting for it to finish before reporting PR checks status
-          WORKFLOW=$(curl "https://circleci.com/api/v2/pipeline/$PIPELINE_ID/workflow?circle-token=$CCI_TOKEN")
-          STATUS=$(echo $WORKFLOW | jq -r '.items[].status')
-
-          while [ "$STATUS" == "running" ]; do
-            echo CircleCI workflow still running
-            sleep 30
-            WORKFLOW=$(curl "https://circleci.com/api/v2/pipeline/$PIPELINE_ID/workflow?circle-token=$CCI_TOKEN")
-            STATUS=$(echo $WORKFLOW | jq -r '.items[].status')
-          done
-
-          echo CircleCI finally done, workflow status: $STATUS
-          ID=$(echo $WORKFLOW | jq -r '.items[].id')
-          echo CCI_WORKFLOW_ID=$ID >> $GITHUB_OUTPUT
-          echo CCI_WORKFLOW_STATUS=$STATUS >> $GITHUB_OUTPUT
-        env:
-          PIPELINE_ID: ${{ steps.trigger-circleci.outputs.id }}
-          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
-
-      - name: PR checks status
-        id: log-circleci-jobs-status
-        run: |
-          JOBS=$(curl "https://circleci.com/api/v2/workflow/$CCI_WORKFLOW_ID/job?circle-token=$CCI_TOKEN")
-
-          echo --------------------------------------------------------------------------------
-          echo PR checks status
-          echo --------------------------------------------------------------------------------
-          echo $JOBS | jq --raw-output '.items[] | "Job \(.name) finished with status: \(.status)"'
-
-          if [[ "$CCI_WORKFLOW_STATUS" == "success" ]]; then
-            echo PR checks passed: https://app.circleci.com/pipelines/github/GITHUB_REPOSITORY/$PIPELINE_NUMBER/workflows/$CCI_WORKFLOW_ID
-            exit 0
-          else
-            echo PR checks failed with status $CCI_WORKFLOW_STATUS: https://app.circleci.com/pipelines/github/$GITHUB_REPOSITORY/$PIPELINE_NUMBER/workflows/$CCI_WORKFLOW_ID
-            exit 1
-          fi
-
-        env:
-          PIPELINE_NUMBER: ${{ steps.trigger-circleci.outputs.number }}
-          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
-          CCI_WORKFLOW_ID: ${{ steps.wait-circleci.outputs.CCI_WORKFLOW_ID }}
-          CCI_WORKFLOW_STATUS: ${{ steps.wait-circleci.outputs.CCI_WORKFLOW_STATUS }}
+          echo PR opened: #${{ github.event.number }}
