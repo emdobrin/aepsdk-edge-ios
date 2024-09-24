@@ -12,7 +12,11 @@
 
 import Foundation
 
-enum FunctionalTestConst {
+enum TestConstants {
+
+    enum EventName {
+        static let CONTENT_COMPLETE = "AEP Response Complete"
+    }
 
     enum EventType {
         static let EDGE = "com.adobe.eventType.edge"
@@ -21,19 +25,24 @@ enum FunctionalTestConst {
         static let CONFIGURATION = "com.adobe.eventType.configuration"
         static let IDENTITY = "com.adobe.eventType.identity"
         static let CONSENT = "com.adobe.eventType.edgeConsent"
+        static let RULES_ENGINE = "com.adobe.eventType.rulesEngine"
     }
 
     enum EventSource {
+        static let CONTENT_COMPLETE = "com.adobe.eventSource.contentComplete"
         static let REQUEST_CONTENT = "com.adobe.eventSource.requestContent"
         static let RESPONSE_CONTENT = "com.adobe.eventSource.responseContent"
         static let ERROR_RESPONSE_CONTENT = "com.adobe.eventSource.errorResponseContent"
         static let SHARED_STATE_REQUEST = "com.adobe.eventSource.requestState"
+        static let REQUEST_RESET = "com.adobe.eventSource.requestReset"
         static let SHARED_STATE_RESPONSE = "com.adobe.eventSource.responseState"
         static let UNREGISTER_EXTENSION = "com.adobe.eventSource.unregisterExtension"
         static let SHARED_STATE = "com.adobe.eventSource.sharedState"
         static let RESPONSE_IDENTITY = "com.adobe.eventSource.responseIdentity"
         static let REQUEST_IDENTITY = "com.adobe.eventSource.requestIdentity"
         static let BOOTED = "com.adobe.eventSource.booted"
+        static let LOCATION_HINT_RESULT = "locationHint:result"
+        static let STATE_STORE = "state:store"
     }
 
     enum EventDataKey {

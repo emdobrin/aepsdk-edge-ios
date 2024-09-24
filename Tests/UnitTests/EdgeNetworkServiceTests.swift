@@ -11,6 +11,7 @@
 //
 
 import AEPServices
+import AEPTestUtils
 import XCTest
 
 @testable import AEPEdge
@@ -18,21 +19,21 @@ import XCTest
 // swiftlint:disable type_body_length
 class EdgeNetworkServiceTests: XCTestCase {
 
-    private var mockNetworking = MockNetworking()
+    private let mockNetworkService: MockNetworkService = MockNetworkService()
     private var mockResponseCallback = MockResponseCallback()
     private var networkService = EdgeNetworkService()
     private let edgeHitPayload = ExperienceEventsEdgeHit(endpoint: EdgeEndpoint(requestType: EdgeRequestType.interact,
                                                                                 environmentType: .production),
-                                                         configId: "configIdExample",
+                                                         datastreamId: "configIdExample",
                                                          request: EdgeRequest(meta: nil, xdm: nil, events: [["test": "data"]])).getPayload()
     private let url = URL(string: "https://test.com")! // swiftlint:disable:this force_unwrapping
     private let defaultNetworkingHeaders: [String] = ["User-Agent", "Accept-Language"]
 
     public override func setUp() {
         continueAfterFailure = false
+        ServiceProvider.shared.networkService = mockNetworkService
+        mockNetworkService.reset()
         self.mockResponseCallback = MockResponseCallback()
-        self.mockNetworking = MockNetworking()
-        ServiceProvider.shared.networkService = mockNetworking
         networkService = EdgeNetworkService()
     }
 
@@ -40,20 +41,26 @@ class EdgeNetworkServiceTests: XCTestCase {
         let defaultServiceHeaders: [String: String] = ["accept": "application/json", "Content-Type": "application/json"]
         let expectation = XCTestExpectation(description: "Network callback is invoked")
 
-        // test
+        // Test
         networkService.doRequest(url: url, requestBody: edgeHitPayload, requestHeaders: [:], streaming: nil, responseCallback: mockResponseCallback, completion: { success, retryInterval in
-            // verify
+            // Verify
+            let networkRequests = self.mockNetworkService.getNetworkRequestsWith(url: self.url, httpMethod: .post)
+            XCTAssertEqual(1, networkRequests.count)
+
+            guard let networkRequest = networkRequests.first else {
+                XCTFail("Unable to find valid network request.")
+                return
+            }
             XCTAssertTrue(success)
             XCTAssertNil(retryInterval)
-            XCTAssertTrue(self.mockNetworking.connectAsyncCalled)
             XCTAssertEqual(defaultServiceHeaders.count + self.defaultNetworkingHeaders.count,
-                           self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders.count)
+                           networkRequest.httpHeaders.count)
             for header in defaultServiceHeaders {
-                XCTAssertNotNil(self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders[header.key])
+                XCTAssertNotNil(networkRequest.httpHeaders[header.key])
             }
 
             for header in self.defaultNetworkingHeaders {
-                XCTAssertNotNil(self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders[header])
+                XCTAssertNotNil(networkRequest.httpHeaders[header])
             }
             expectation.fulfill()
         })
@@ -73,20 +80,26 @@ class EdgeNetworkServiceTests: XCTestCase {
                                  streaming: nil,
                                  responseCallback: mockResponseCallback,
                                  completion: { success, retryInterval  in
-                                    // verify
-                                    XCTAssertTrue(success)
-                                    XCTAssertNil(retryInterval)
-                                    XCTAssertTrue(self.mockNetworking.connectAsyncCalled)
-                                    XCTAssertEqual(testHeaders.count + self.defaultNetworkingHeaders.count, self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders.count)
-                                    for header in testHeaders {
-                                        XCTAssertNotNil(self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders[header.key])
-                                    }
+            // verify
+            let networkRequests = self.mockNetworkService.getNetworkRequestsWith(url: self.url, httpMethod: .post)
+            guard let networkRequest = networkRequests.first else {
+                XCTFail("Unable to find valid network request.")
+                return
+            }
 
-                                    for header in self.defaultNetworkingHeaders {
-                                        XCTAssertNotNil(self.mockNetworking.connectAsyncCalledWithNetworkRequest?.httpHeaders[header])
-                                    }
-                                    expectation.fulfill()
-                                 })
+            XCTAssertTrue(success)
+            XCTAssertNil(retryInterval)
+            XCTAssertEqual(1, networkRequests.count)
+            XCTAssertEqual(testHeaders.count + self.defaultNetworkingHeaders.count, networkRequest.httpHeaders.count)
+            for header in testHeaders {
+                XCTAssertNotNil(networkRequest.httpHeaders[header.key])
+            }
+
+            for header in self.defaultNetworkingHeaders {
+                XCTAssertNotNil(networkRequest.httpHeaders[header])
+            }
+            expectation.fulfill()
+        })
 
         wait(for: [expectation], timeout: 0.5)
     }
@@ -100,7 +113,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -129,7 +142,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 204, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -158,7 +171,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 207, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -187,7 +200,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: ["Retry-After": "60"]),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -207,14 +220,40 @@ class EdgeNetworkServiceTests: XCTestCase {
         wait(for: [expectation], timeout: 0.5)
     }
 
-    func testDoRequest_whenConnection_UnrecoverableResponseCode_WhenContentTypeJson_WithError_ReturnFormattedError() {
+    func testDoRequest_whenConnection_RecoverableTransportErrorCode_CallsCompletionFalse_AndNoResponseCallback() {
+            // setup
+            let error: NSError = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet, userInfo: nil)
+            let expectation = XCTestExpectation(description: "Network callback is invoked")
+
+            // test
+            let mockHttpConnection = HttpConnection(data: nil, response: nil, error: error)
+            mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
+            networkService.doRequest(url: url,
+                                     requestBody: edgeHitPayload,
+                                     requestHeaders: [:],
+                                     streaming: nil,
+                                     responseCallback: mockResponseCallback,
+                                     completion: { success, retryInterval in
+                                        // verify
+                                        XCTAssertFalse(success)
+                                        XCTAssertEqual(5.0, retryInterval)
+                                        XCTAssertFalse(self.mockResponseCallback.onResponseCalled)
+                                        XCTAssertFalse(self.mockResponseCallback.onErrorCalled)
+                                        XCTAssertEqual([], self.mockResponseCallback.onResponseJsonResponse)
+                                        expectation.fulfill()
+                                     })
+
+            wait(for: [expectation], timeout: 0.5)
+        }
+
+    func testDoRequest_whenConnection_UnrecoverableTransportErrorCode_WhenContentTypeJson_WithError_ReturnFormattedError() {
         // setup
         let error: NSError = NSError(domain: NSURLErrorDomain, code: NSURLErrorAppTransportSecurityRequiresSecureConnection, userInfo: nil)
         let expectation = XCTestExpectation(description: "Network callback is invoked")
 
         // test
-        let mockHttpConnection = HttpConnection(data: nil, response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: nil), error: error)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        let mockHttpConnection = HttpConnection(data: nil, response: nil, error: error)
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -229,7 +268,7 @@ class EdgeNetworkServiceTests: XCTestCase {
                                     XCTAssertEqual(1, self.mockResponseCallback.onErrorJsonError.capacity)
                                     let errorJson = self.mockResponseCallback.onErrorJsonError[0]
                                     XCTAssertTrue(errorJson.contains("\"title\":\"Unexpected Error\""))
-                                    XCTAssertTrue(errorJson.contains("\"detail\":\"service unavailable\""))
+                                    XCTAssertTrue(errorJson.contains("\"detail\":\"Request to Experience Edge failed with an unknown exception\""))
                                     expectation.fulfill()
                                  })
 
@@ -243,7 +282,7 @@ class EdgeNetworkServiceTests: XCTestCase {
                                                 error: nil)
         let expectation = XCTestExpectation(description: "Network callback is invoked")
 
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -274,7 +313,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 500, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -298,26 +337,27 @@ class EdgeNetworkServiceTests: XCTestCase {
 
     func testDoRequest_whenConnection_UnrecoverableResponseCode_WhenContentTypeJson_WithValidJsonContent() {
         // setup
-        let stringResponseBody = "{\n" +
-            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
-            "      \"handle\": [],\n" +
-            "      \"errors\": [\n" +
-            "        {\n" +
-            "          \"code\": \"global:0\",\n" +
-            "          \"namespace\": \"global\",\n" +
-            "          \"severity\": \"0\",\n" +
-            "          \"message\": \"Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases\"\n"
-            +
-            "        }\n" +
-            "      ]\n" +
-            "    }"
+        let stringResponseBody = #"""
+        {
+          "errors": [
+            {
+              "code": "global:0",
+              "message": "Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases",
+              "namespace": "global",
+              "severity": "0"
+            }
+          ],
+          "handle": [],
+          "requestId": "d81c93e5-7558-4996-a93c-489d550748b8"
+        }
+        """#
         let expectation = XCTestExpectation(description: "Network callback is invoked")
 
         // test
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 500, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -347,7 +387,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -375,7 +415,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: ["Retry-After": "60"]),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -403,7 +443,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: nil),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url, requestBody: edgeHitPayload, requestHeaders: [:], streaming: nil, responseCallback: mockResponseCallback, completion: { success, retryInterval in
             // verify
             XCTAssertFalse(success)
@@ -426,7 +466,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: ["Retry-After": ""]),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -454,7 +494,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: ["Retry-After": "NotAValidRetryInterval"]),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],
@@ -482,7 +522,7 @@ class EdgeNetworkServiceTests: XCTestCase {
         let mockHttpConnection = HttpConnection(data: stringResponseBody.data(using: .utf8),
                                                 response: HTTPURLResponse(url: url, statusCode: 503, httpVersion: nil, headerFields: ["Retry-After": "60"]),
                                                 error: nil)
-        mockNetworking.connectAsyncMockReturnConnection = mockHttpConnection
+        mockNetworkService.setMockResponse(url: url, httpMethod: .post, responseConnection: mockHttpConnection)
         networkService.doRequest(url: url,
                                  requestBody: edgeHitPayload,
                                  requestHeaders: [:],

@@ -13,19 +13,28 @@
 import AEPCore
 @testable import AEPEdge
 @testable import AEPServices
+import AEPTestUtils
 import XCTest
 
 // swiftlint:disable type_body_length
-class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
+class NetworkResponseHandlerFunctionalTests: TestBase, AnyCodableAsserts {
     private let event1 = Event(name: "e1", type: "eventType", source: "eventSource", data: nil)
     private let event2 = Event(name: "e2", type: "eventType", source: "eventSource", data: nil)
-    private var networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_ :String?, _ :TimeInterval?) -> Void in  })
+    private let requestSendCompletionTrueEventData: [String: Any] = ["xdm": ["testString": "xdm"], "request": [ "sendCompletion": true ]]
+    private let requestSendCompletionFalseEventData: [String: Any] = ["xdm": ["testString": "xdm"], "request": [ "sendCompletion": false ]]
+    private var networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_: String?, _: TimeInterval?) -> Void in  })
     private let dataStore = NamedCollectionDataStore(name: EdgeConstants.EXTENSION_NAME)
 
     override func setUp() {
         super.setUp()
+
+        setExpectationEvent(type: TestConstants.EventType.HUB, source: TestConstants.EventSource.SHARED_STATE, expectedCount: 1)
+
         MobileCore.registerExtensions([InstrumentedExtension.self]) // start MobileCore
         continueAfterFailure = false
+
+        assertExpectedEvents(ignoreUnexpectedEvents: false, timeout: 2)
+        resetTestExpectations()
     }
 
     // MARK: processResponseOnError
@@ -33,41 +42,40 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
     func testProcessResponseOnError_WhenEmptyJsonError_doesNotHandleError() {
         let jsonError = ""
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(0, dispatchEvents.count)
     }
 
     func testProcessResponseOnError_WhenInvalidJsonError_doesNotHandleError() {
         let jsonError = "{ invalid json }"
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(0, dispatchEvents.count)
     }
 
     func testProcessResponseOnError_WhenGenericJsonError_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
         let jsonError = "{\n" +
             "\"type\": \"https://ns.adobe.com/aep/errors/EXEG-0201-503\",\n" +
             "\"title\": \"Request to Data platform failed with an unknown exception\"" +
             "\n}"
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, timeout: 5)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, timeout: 5)
         XCTAssertEqual(1, dispatchEvents.count)
 
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
+        let expected = """
+        {
+          "requestId": "123",
+          "title": "Request to Data platform failed with an unknown exception",
+          "type": "https://ns.adobe.com/aep/errors/EXEG-0201-503"
         }
+        """
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(3, flattenReceivedData.count)
-        XCTAssertEqual("https://ns.adobe.com/aep/errors/EXEG-0201-503", flattenReceivedData["type"] as? String)
-        XCTAssertEqual("Request to Data platform failed with an unknown exception", flattenReceivedData["title"] as? String)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnError_WhenOneEventJsonError_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
         let jsonError = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [],\n" +
@@ -80,25 +88,29 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "        }\n" +
             "      ]\n" +
             "    }"
+        networkResponseHandler.addWaitingEvents(requestId: "123", batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
 
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
+        // Parent ID chained to default event index 0
+        XCTAssertEqual(event1.id, dispatchEvents[0].parentID)
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(4, flattenReceivedData.count)
-        XCTAssertEqual("https://ns.adobe.com/aep/errors/EXEG-0201-503", flattenReceivedData["type"] as? String)
-        XCTAssertEqual(500, flattenReceivedData["status"] as? Int)
-        XCTAssertEqual("Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases", flattenReceivedData["title"] as? String)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
+        let expected = """
+        {
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "status": 500,
+          "title": "Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases",
+          "type": "https://ns.adobe.com/aep/errors/EXEG-0201-503"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnError_WhenValidEventIndex_dispatchesPairedEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
         let requestId = "123"
         let jsonError = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -108,31 +120,35 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "          \"status\": 100,\n" +
             "          \"type\": \"personalization\",\n" +
             "          \"title\": \"Button color not found\",\n" +
-            "           \"eventIndex\": 0\n" +
+            "          \"report\": {\n" +
+            "            \"eventIndex\": 1\n" +
+            "           }\n" +
             "        }\n" +
             "      ]\n" +
             "    }"
         networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: requestId)
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
 
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
+        // Parent ID chained to event with index 1
+        XCTAssertEqual(event2.id, dispatchEvents[0].parentID)
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(5, flattenReceivedData.count)
-        XCTAssertEqual("personalization", flattenReceivedData["type"] as? String)
-        XCTAssertEqual(100, flattenReceivedData["status"] as? Int)
-        XCTAssertEqual("Button color not found", flattenReceivedData["title"] as? String)
-        XCTAssertEqual(requestId, flattenReceivedData["requestId"] as? String)
-        XCTAssertEqual(event1.id.uuidString, flattenReceivedData["requestEventId"] as? String)
+        let expected = """
+        {
+          "requestEventId": "\(event2.id.uuidString)",
+          "requestId": "\(requestId)",
+          "status": 100,
+          "title": "Button color not found",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnError_WhenUnknownEventIndex_doesNotCrash() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
         let requestId = "123"
         let jsonError = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -142,29 +158,33 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "          \"status\": 100,\n" +
             "          \"type\": \"personalization\",\n" +
             "          \"title\": \"Button color not found\",\n" +
+            "          \"report\": {\n" +
             "           \"eventIndex\": 10\n" +
+            "           }\n" +
             "        }\n" +
             "      ]\n" +
             "    }"
         networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: requestId)
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
 
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
+        // Parent ID not chained as no event at index 10
+        XCTAssertNil(dispatchEvents[0].parentID)
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(4, flattenReceivedData.count)
-        XCTAssertEqual("personalization", flattenReceivedData["type"] as? String)
-        XCTAssertEqual(100, flattenReceivedData["status"] as? Int)
-        XCTAssertEqual("Button color not found", flattenReceivedData["title"] as? String)
-        XCTAssertEqual(requestId, flattenReceivedData["requestId"] as? String)
+        let expected = """
+        {
+          "requestId": "\(requestId)",
+          "status": 100,
+          "title": "Button color not found",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
     func testProcessResponseOnError_WhenUnknownRequestId_doesNotCrash() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 1)
         let requestId = "123"
         let jsonError = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -174,29 +194,33 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "          \"status\": 100,\n" +
             "          \"type\": \"personalization\",\n" +
             "          \"title\": \"Button color not found\",\n" +
+            "          \"report\": {\n" +
             "           \"eventIndex\": 0\n" +
+            "           }\n" +
             "        }\n" +
             "      ]\n" +
             "    }"
         networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: "567")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
 
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
+        // Parent ID not chained as request ID is unknown (does not match any waiting event list)
+        XCTAssertNil(dispatchEvents[0].parentID)
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(4, flattenReceivedData.count)
-        XCTAssertEqual("personalization", flattenReceivedData["type"] as? String)
-        XCTAssertEqual(100, flattenReceivedData["status"] as? Int)
-        XCTAssertEqual("Button color not found", flattenReceivedData["title"] as? String)
-        XCTAssertEqual("567", flattenReceivedData["requestId"] as? String)
+        let expected = """
+        {
+          "requestId": "567",
+          "status": 100,
+          "title": "Button color not found",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
     func testProcessResponseOnError_WhenTwoEventJsonError_dispatchesTwoEvents() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 2)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 2)
         let requestId = "123"
         let jsonError = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -215,47 +239,57 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "        }\n" +
             "      ]\n" +
             "    }"
+
+        networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnError(jsonError: jsonError, requestId: requestId)
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
         XCTAssertEqual(2, dispatchEvents.count)
 
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
-        }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(4, flattenReceivedData1.count)
-        XCTAssertEqual(0, flattenReceivedData1["status"] as? Int)
-        XCTAssertEqual("https://ns.adobe.com/aep/errors/EXEG-0201-503", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases", flattenReceivedData1["title"] as? String)
-        XCTAssertEqual(requestId, flattenReceivedData1["requestId"] as? String)
+        // Event chained to event1 as default event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[0].parentID)
 
-        guard let receivedData2 = dispatchEvents[1].data else {
-            XCTFail("Invalid event data for event 2")
-            return
+        let expected_event1 = """
+        {
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "\(requestId)",
+          "status": 0,
+          "title": "Failed due to unrecoverable system error: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was BEGIN_OBJECT at path $.commerce.purchases",
+          "type": "https://ns.adobe.com/aep/errors/EXEG-0201-503"
         }
-        let flattenReceivedData2: [String: Any] = flattenDictionary(dict: receivedData2)
-        XCTAssertEqual(4, flattenReceivedData2.count)
-        XCTAssertEqual(2003, flattenReceivedData2["status"] as? Int)
-        XCTAssertEqual("personalization", flattenReceivedData2["type"] as? String)
-        XCTAssertEqual("Failed to process personalization event", flattenReceivedData2["title"] as? String)
-        XCTAssertEqual(requestId, flattenReceivedData2["requestId"] as? String)
+        """
+
+        assertEqual(expected: expected_event1, actual: dispatchEvents[0])
+
+        // Event chained to event1 as default event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[1].parentID)
+
+        let expected_event2 = """
+        {
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "\(requestId)",
+          "status": 2003,
+          "title": "Failed to process personalization event",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected_event2, actual: dispatchEvents[1])
     }
     // MARK: processResponseOnSuccess
 
     func testProcessResponseOnSuccess_WhenEmptyJsonResponse_doesNotDispatchEvent() {
         let jsonResponse = ""
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE,
-                                                     source: FunctionalTestConst.EventSource.RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE,
+                                                     source: TestConstants.EventSource.RESPONSE_CONTENT)
         XCTAssertEqual(0, dispatchEvents.count)
     }
 
     func testProcessResponseOnSuccess_WhenInvalidJsonResponse_doesNotDispatchEvent() {
         let jsonResponse = "{ invalid json }"
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE,
-                                                     source: FunctionalTestConst.EventSource.RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE,
+                                                     source: TestConstants.EventSource.RESPONSE_CONTENT)
         XCTAssertEqual(0, dispatchEvents.count)
     }
 
@@ -267,7 +301,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -297,7 +331,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
 
         networkResponseHandler.setLastReset(date: Date(timeIntervalSince1970: Date().timeIntervalSince1970 + 10)) // date is after `event.timestamp` // date is after `event.timestamp`
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -323,14 +357,14 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
     /// Tests that when an event is processed after a persisted reset event that the store payloads are saved
     func testProcessResponseOnSuccess_afterPersistedResetEvent_savesStorePayloads() {
         dataStore.set(key: EdgeConstants.DataStoreKeys.RESET_IDENTITIES_DATE, value: Date().timeIntervalSince1970 - 10) // date is before `event.timestamp`
-        networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_ :String?, _ :TimeInterval?) -> Void in  }) // loads reset time on init
+        networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_: String?, _: TimeInterval?) -> Void in  }) // loads reset time on init
 
         let event = Event(name: "test", type: "test-type", source: "test-source", data: nil)
 
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -358,11 +392,11 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         let event = Event(name: "test", type: "test-type", source: "test-source", data: nil)
 
         dataStore.set(key: EdgeConstants.DataStoreKeys.RESET_IDENTITIES_DATE, value: Date().timeIntervalSince1970 + 10) // date is after `event.timestamp`
-        networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_ :String?, _ :TimeInterval?) -> Void in  }) // loads reset time on init
+        networkResponseHandler = NetworkResponseHandler(updateLocationHint: { (_: String?, _: TimeInterval?) -> Void in  }) // loads reset time on init
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -386,7 +420,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
     }
 
     func testProcessResponseOnSuccess_WhenOneEventHandle_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -404,24 +438,80 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "    }"
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "state:store")
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(5, flattenReceivedData.count)
-        XCTAssertEqual("state:store", flattenReceivedData["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData["payload[0].maxAge"] as? Int)
+        let expected = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestId": "123",
+          "type": "state:store"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
+    }
+
+    func testProcessResponseOnSuccess_WhenOneEventHandle_emptyEventHandlePayload_dispatchesEvent() {
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        let jsonResponse = "{\n" +
+            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
+            "      \"handle\": [" +
+            "           {\n" +
+            "            \"type\": \"state:store\",\n" +
+            "            \"payload\": []" +
+            "        }],\n" +
+            "      \"errors\": []\n" +
+            "    }"
+        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
+
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
+        XCTAssertEqual(1, dispatchEvents.count)
+
+        let expected = """
+        {
+          "payload": [],
+          "requestId": "123",
+          "type": "state:store"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
+    }
+
+    func testProcessResponseOnSuccess_WhenOneEventHandle_noEventHandlePayload_dispatchesEvent() {
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        let jsonResponse = "{\n" +
+            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
+            "      \"handle\": [" +
+            "           {\n" +
+            "            \"type\": \"state:store\"\n" +
+            "        }],\n" +
+            "      \"errors\": []\n" +
+            "    }"
+        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
+
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
+        XCTAssertEqual(1, dispatchEvents.count)
+
+        let expected = """
+        {
+          "requestId": "123",
+          "type": "state:store"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnSuccess_WhenOneEventHandle_emptyEventHandleType_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -439,23 +529,31 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "    }"
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(5, flattenReceivedData.count)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData["payload[0].maxAge"] as? Int)
+        let expected = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestId": "123",
+          "type": "STRING_TYPE"
+        }
+        """
+
+        assertExactMatch(
+            expected: expected,
+            actual: dispatchEvents[0],
+            pathOptions: CollectionEqualCount(scope: .subtree), ValueTypeMatch(paths: "type"))
     }
 
     func testProcessResponseOnSuccess_WhenOneEventHandle_nilEventHandleType_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -472,23 +570,27 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "    }"
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT)
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(4, flattenReceivedData.count)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData["payload[0].maxAge"] as? Int)
+        let expected = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestId": "123"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnSuccess_WhenTwoEventHandles_dispatchesTwoEvents() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 2)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 2)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -514,39 +616,59 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "        }],\n" +
             "      \"errors\": []\n" +
             "    }"
-        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
 
-        var dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "state:store")
-        dispatchEvents += getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "identity:persist")
+        networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8", batchedEvents: [event1, event2])
+        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "d81c93e5-7558-4996-a93c-489d550748b8")
+
+        var dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
+        dispatchEvents += getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "identity:persist")
         XCTAssertEqual(2, dispatchEvents.count)
-        // verify event 1
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
-        }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(5, flattenReceivedData1.count)
-        XCTAssertEqual("state:store", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData1["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData1["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData1["payload[0].maxAge"] as? Int)
+        // Verify event 1
+        // Event chained to event1 as default event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[0].parentID)
 
-        // verify event 2
-        guard let receivedData2 = dispatchEvents[1].data else {
-            XCTFail("Invalid event data for event 2")
-            return
+        let expected_event1 = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "d81c93e5-7558-4996-a93c-489d550748b8",
+          "type": "state:store"
         }
-        let flattenReceivedData2: [String: Any] = flattenDictionary(dict: receivedData2)
-        XCTAssertEqual(4, flattenReceivedData2.count)
-        XCTAssertEqual("identity:persist", flattenReceivedData2["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData2["requestId"] as? String)
-        XCTAssertEqual("29068398647607325310376254630528178721", flattenReceivedData2["payload[0].id"] as? String)
-        XCTAssertEqual("ECID", flattenReceivedData2["payload[0].namespace.code"] as? String)
+        """
+
+        assertEqual(expected: expected_event1, actual: dispatchEvents[0])
+
+        // Verify event 2
+        // Event chained to event1 as default event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[1].parentID)
+
+        let expected_event2 = """
+        {
+          "payload": [
+            {
+              "id": "29068398647607325310376254630528178721",
+              "namespace": {
+                "code": "ECID"
+              }
+            }
+          ],
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "d81c93e5-7558-4996-a93c-489d550748b8",
+          "type": "identity:persist"
+        }
+        """
+
+        assertEqual(expected: expected_event2, actual: dispatchEvents[1])
     }
 
     func testProcessResponseOnSuccess_WhenEventHandleWithEventIndex_dispatchesEventWithRequestEventId() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 2)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 2)
         let requestId = "123"
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -574,40 +696,56 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
 
-        // verify event 1
-        var dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE,
+        // Verify
+        var dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE,
                                                      source: "state:store")
-        dispatchEvents += getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE,
+        dispatchEvents += getDispatchedEventsWith(type: TestConstants.EventType.EDGE,
                                                   source: "pairedeventexample")
         XCTAssertEqual(2, dispatchEvents.count)
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
-        }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(6, flattenReceivedData1.count)
-        XCTAssertEqual("state:store", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData1["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData1["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData1["payload[0].maxAge"] as? Int)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
-        XCTAssertEqual(event1.id.uuidString, flattenReceivedData1["requestEventId"] as? String)
 
-        // verify event 2
-        guard let receivedData2 = dispatchEvents[1].data else {
-            XCTFail("Invalid event data for event 2")
-            return
+        // Verify event 1
+        // Event chained to event1 as default event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[0].parentID)
+
+        let expected_event1 = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "type": "state:store"
         }
-        let flattenReceivedData2: [String: Any] = flattenDictionary(dict: receivedData2)
-        XCTAssertEqual(4, flattenReceivedData2.count)
-        XCTAssertEqual("pairedeventexample", flattenReceivedData2["type"] as? String)
-        XCTAssertEqual("123612123812381", flattenReceivedData2["payload[0].id"] as? String)
-        XCTAssertEqual("123", flattenReceivedData2["requestId"] as? String)
-        XCTAssertEqual(event2.id.uuidString, flattenReceivedData2["requestEventId"] as? String)
+        """
+
+        assertEqual(expected: expected_event1, actual: dispatchEvents[0])
+
+        // Verify event 2
+        // Event chained to event2 as event index is 1
+        XCTAssertEqual(event2.id, dispatchEvents[1].parentID)
+
+        let expected_event2 = """
+        {
+          "payload": [
+            {
+              "id": "123612123812381"
+            }
+          ],
+          "requestEventId": "\(event2.id.uuidString)",
+          "requestId": "123",
+          "type": "pairedeventexample"
+        }
+        """
+
+        assertEqual(expected: expected_event2, actual: dispatchEvents[1])
     }
 
     func testProcessResponseOnSuccess_WhenEventHandleWithUnknownEventIndex_dispatchesUnpairedEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let requestId = "123"
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -627,22 +765,29 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "pairedeventexample")
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "pairedeventexample")
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
+        // Parent ID nil as event index does not match any waiting event
+        XCTAssertNil(dispatchEvents[0].parentID)
+
+        let expected = """
+        {
+          "payload": [
+            {
+              "id": "123612123812381"
+            }
+          ],
+          "requestId": "123",
+          "type": "pairedeventexample"
         }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(3, flattenReceivedData1.count)
-        XCTAssertEqual("pairedeventexample", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
-        XCTAssertEqual("123612123812381", flattenReceivedData1["payload[0].id"] as? String)
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     func testProcessResponseOnSuccess_WhenUnknownRequestId_doesNotCrash() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE,
-                            source: FunctionalTestConst.EventSource.RESPONSE_CONTENT,
+        setExpectationEvent(type: TestConstants.EventType.EDGE,
+                            source: TestConstants.EventSource.RESPONSE_CONTENT,
                             expectedCount: 1)
         let requestId = "123"
         let jsonResponse = "{\n" +
@@ -663,29 +808,184 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "567", batchedEvents: [event1, event2])
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE,
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE,
                                                      source: "pairedeventexample")
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
+        // Parent ID nil as request ID does not match any waiting events
+        XCTAssertNil(dispatchEvents[0].parentID)
+
+        let expected = """
+        {
+          "payload": [
+            {
+              "id": "123612123812381"
+            }
+          ],
+          "requestId": "123",
+          "type": "pairedeventexample"
         }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(3, flattenReceivedData1.count)
-        XCTAssertEqual("pairedeventexample", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
-        XCTAssertEqual("123612123812381", flattenReceivedData1["payload[0].id"] as? String)
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     // MARK: processResponseOnSuccess with mixed event handles, errors, warnings
 
     func testProcessResponseOnSuccess_WhenEventHandleAndError_dispatchesTwoEvents() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE,
-                            source: FunctionalTestConst.EventSource.RESPONSE_CONTENT,
+        setExpectationEvent(type: TestConstants.EventType.EDGE,
+                            source: TestConstants.EventSource.RESPONSE_CONTENT,
                             expectedCount: 1)
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE,
-                            source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT,
+        setExpectationEvent(type: TestConstants.EventType.EDGE,
+                            source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT,
                             expectedCount: 1)
+        let requestId = "123"
+        let jsonResponse = "{\n" +
+            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
+            "      \"handle\": [" +
+            "            {\n" +
+            "            \"type\": \"state:store\",\n" +
+            "            \"eventIndex\": 1, \n" +
+            "            \"payload\": [\n" +
+            "                {\n" +
+            "                    \"key\": \"s_ecid\",\n" +
+            "                    \"value\": \"MCMID|29068398647607325310376254630528178721\",\n" +
+            "                    \"maxAge\": 15552000\n" +
+            "                }\n" +
+            "            ]}],\n" +
+            "      \"errors\": [" +
+            "        {\n" +
+            "          \"status\": 2003,\n" +
+            "          \"type\": \"personalization\",\n" +
+            "          \"title\": \"Failed to process personalization event\",\n" +
+            "          \"report\": {\n" +
+            "            \"eventIndex\": 1 \n" +
+            "           }\n" +
+            "        }\n" +
+            "       ]\n" +
+            "    }"
+
+        networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
+        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
+
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
+        XCTAssertEqual(1, dispatchEvents.count)
+        // Event chained to event2 as event index is 1
+        XCTAssertEqual(event2.id, dispatchEvents[0].parentID)
+
+        let expected_event = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestEventId": "\(event2.id.uuidString)",
+          "requestId": "123",
+          "type": "state:store"
+        }
+        """
+
+        assertEqual(expected: expected_event, actual: dispatchEvents[0])
+
+        let dispatchErrorEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
+        XCTAssertEqual(1, dispatchErrorEvents.count)
+        // Event chained to event2 as event index is 1
+        XCTAssertEqual(event2.id, dispatchErrorEvents[0].parentID)
+
+        let expected_errorEvent = """
+        {
+          "requestEventId": "\(event2.id.uuidString)",
+          "requestId": "123",
+          "status": 2003,
+          "title": "Failed to process personalization event",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected_errorEvent, actual: dispatchErrorEvents[0])
+    }
+
+    func testProcessResponseOnSuccess_WhenErrorAndWarning_dispatchesTwoEvents() {
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 2)
+        let requestId = "123"
+        let jsonResponse = "{\n" +
+            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
+            "      \"handle\": [],\n" +
+            "      \"errors\": [" +
+            "        {\n" +
+            "          \"status\": 2003,\n" +
+            "          \"title\": \"Failed to process personalization event\",\n" +
+            "          \"report\": {\n" +
+            "            \"eventIndex\": 1 \n" +
+            "           }\n" +
+            "        }\n" +
+            "       ],\n" +
+            "      \"warnings\": [" +
+            "        {\n" +
+            "          \"type\": \"https://ns.adobe.com/aep/errors/EXEG-0204-200\",\n" +
+            "          \"status\": 98,\n" +
+            "          \"title\": \"Some Informative stuff here\",\n" +
+            "          \"report\": {" +
+            "             \"eventIndex\": 0, \n" +
+            "             \"cause\": {" +
+            "                \"message\": \"Some Informative stuff here\",\n" +
+            "                \"code\": 202\n" +
+            "             }" +
+            "          }" +
+            "        }\n" +
+            "       ]\n" +
+            "    }"
+
+        networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1, event2])
+        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
+
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
+        XCTAssertEqual(2, dispatchEvents.count)
+        // Event chained to event2 as event index is 1
+        XCTAssertEqual(event2.id, dispatchEvents[0].parentID)
+
+        let expected_event1 = """
+        {
+          "requestEventId": "\(event2.id.uuidString)",
+          "requestId": "123",
+          "status": 2003,
+          "title": "Failed to process personalization event"
+        }
+        """
+
+        assertEqual(expected: expected_event1, actual: dispatchEvents[0])
+
+        // Event chained to event1 as event index is 0
+        XCTAssertEqual(event1.id, dispatchEvents[1].parentID)
+
+        let expected_event2 = """
+        {
+          "report": {
+            "cause": {
+              "code": 202,
+              "message": "Some Informative stuff here"
+            }
+          },
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "status": 98,
+          "title": "Some Informative stuff here",
+          "type": "https://ns.adobe.com/aep/errors/EXEG-0204-200"
+        }
+        """
+
+        assertEqual(expected: expected_event2, actual: dispatchEvents[1])
+    }
+
+    func testProcessResponseOnSuccess_WhenEventHandleAndErrorAndWarning_dispatchesThreeEvents() {
+        setExpectationEvent(type: TestConstants.EventType.EDGE,
+                            source: TestConstants.EventSource.RESPONSE_CONTENT,
+                            expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE,
+                            source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT,
+                            expectedCount: 2)
         let requestId = "123"
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
@@ -705,59 +1005,12 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "          \"type\": \"personalization\",\n" +
             "          \"title\": \"Failed to process personalization event\"\n" +
             "        }\n" +
-            "       ]\n" +
-            "    }"
-
-        networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
-
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "state:store")
-        XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
-        }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(5, flattenReceivedData1.count)
-        XCTAssertEqual("state:store", flattenReceivedData1["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
-        XCTAssertEqual("s_ecid", flattenReceivedData1["payload[0].key"] as? String)
-        XCTAssertEqual("MCMID|29068398647607325310376254630528178721", flattenReceivedData1["payload[0].value"] as? String)
-        XCTAssertEqual(15552000, flattenReceivedData1["payload[0].maxAge"] as? Int)
-
-        let dispatchErrorEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
-        XCTAssertEqual(1, dispatchErrorEvents.count)
-        guard let receivedData2 = dispatchErrorEvents[0].data else {
-            XCTFail("Invalid event data for event 2")
-            return
-        }
-
-        let flattenReceivedData2: [String: Any] = flattenDictionary(dict: receivedData2)
-        XCTAssertEqual(4, flattenReceivedData2.count)
-        XCTAssertEqual("personalization", flattenReceivedData2["type"] as? String)
-        XCTAssertEqual(2003, flattenReceivedData2["status"] as? Int)
-        XCTAssertEqual("Failed to process personalization event", flattenReceivedData2["title"] as? String)
-        XCTAssertEqual("123", flattenReceivedData2["requestId"] as? String)
-    }
-
-    func testProcessResponseOnSuccess_WhenErrorAndWarning_dispatchesTwoEvents() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT, expectedCount: 2)
-        let requestId = "123"
-        let jsonResponse = "{\n" +
-            "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
-            "      \"handle\": [],\n" +
-            "      \"errors\": [" +
-            "        {\n" +
-            "          \"status\": 2003,\n" +
-            "          \"title\": \"Failed to process personalization event\",\n" +
-            "          \"eventIndex\": 2 \n" +
-            "        }\n" +
             "       ],\n" +
             "      \"warnings\": [" +
             "        {\n" +
             "          \"type\": \"https://ns.adobe.com/aep/errors/EXEG-0204-200\",\n" +
             "          \"status\": 98,\n" +
             "          \"title\": \"Some Informative stuff here\",\n" +
-            "          \"eventIndex\": 10, \n" +
             "          \"report\": {" +
             "             \"cause\": {" +
             "                \"message\": \"Some Informative stuff here\",\n" +
@@ -768,38 +1021,74 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "       ]\n" +
             "    }"
 
+        networkResponseHandler.addWaitingEvents(requestId: requestId, batchedEvents: [event1])
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: requestId)
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.ERROR_RESPONSE_CONTENT)
-        XCTAssertEqual(2, dispatchEvents.count)
-        guard let receivedData1 = dispatchEvents[0].data else {
-            XCTFail("Invalid event data for event 1")
-            return
-        }
-        let flattenReceivedData1: [String: Any] = flattenDictionary(dict: receivedData1)
-        XCTAssertEqual(3, flattenReceivedData1.count)
-        XCTAssertEqual(2003, flattenReceivedData1["status"] as? Int)
-        XCTAssertEqual("Failed to process personalization event", flattenReceivedData1["title"] as? String)
-        XCTAssertEqual("123", flattenReceivedData1["requestId"] as? String)
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "state:store")
+        XCTAssertEqual(1, dispatchEvents.count)
+        // Event chained to event1 as event index defaults to 0
+        XCTAssertEqual(event1.id, dispatchEvents[0].parentID)
 
-        guard let receivedData2 = dispatchEvents[1].data else {
-            XCTFail("Invalid event data for event 2")
-            return
+        let expected_event = """
+        {
+          "payload": [
+            {
+              "key": "s_ecid",
+              "maxAge": 15552000,
+              "value": "MCMID|29068398647607325310376254630528178721"
+            }
+          ],
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "type": "state:store"
         }
-        let flattenReceivedData2: [String: Any] = flattenDictionary(dict: receivedData2)
-        XCTAssertEqual(6, flattenReceivedData2.count)
-        XCTAssertEqual("https://ns.adobe.com/aep/errors/EXEG-0204-200", flattenReceivedData2["type"] as? String)
-        XCTAssertEqual(98, flattenReceivedData2["status"] as? Int)
-        XCTAssertEqual("Some Informative stuff here", flattenReceivedData2["title"] as? String)
-        XCTAssertEqual("Some Informative stuff here", flattenReceivedData2["report.cause.message"] as? String)
-        XCTAssertEqual(202, flattenReceivedData2["report.cause.code"] as? Int)
-        XCTAssertEqual("123", flattenReceivedData2["requestId"] as? String)
+        """
+
+        assertEqual(expected: expected_event, actual: dispatchEvents[0])
+
+        let dispatchErrorEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.ERROR_RESPONSE_CONTENT)
+        XCTAssertEqual(2, dispatchErrorEvents.count)
+        // Event chained to event1 as event index defaults to 0
+        XCTAssertEqual(event1.id, dispatchErrorEvents[0].parentID)
+
+        let expected_errorEvent1 = """
+        {
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "status": 2003,
+          "title": "Failed to process personalization event",
+          "type": "personalization"
+        }
+        """
+
+        assertEqual(expected: expected_errorEvent1, actual: dispatchErrorEvents[0])
+
+        // Event chained to event1 as event index defaults to 0
+        XCTAssertEqual(event1.id, dispatchErrorEvents[1].parentID)
+
+        let expected_errorEvent2 = """
+        {
+          "report": {
+            "cause": {
+              "code": 202,
+              "message": "Some Informative stuff here"
+            }
+          },
+          "requestEventId": "\(event1.id.uuidString)",
+          "requestId": "123",
+          "status": 98,
+          "title": "Some Informative stuff here",
+          "type": "https://ns.adobe.com/aep/errors/EXEG-0204-200"
+        }
+        """
+
+        assertEqual(expected: expected_errorEvent2, actual: dispatchErrorEvents[1])
     }
 
     // MARK: locationHint:result
 
     func testProcessResponseOnSuccess_WhenLocationHintResultEventHandle_dispatchesEvent() {
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -821,23 +1110,29 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
             "    }"
         networkResponseHandler.processResponseOnSuccess(jsonResponse: jsonResponse, requestId: "123")
 
-        let dispatchEvents = getDispatchedEventsWith(type: FunctionalTestConst.EventType.EDGE, source: "locationHint:result")
+        let dispatchEvents = getDispatchedEventsWith(type: TestConstants.EventType.EDGE, source: "locationHint:result")
         XCTAssertEqual(1, dispatchEvents.count)
-        guard let receivedData = dispatchEvents[0].data else {
-            XCTFail("Invalid event data")
-            return
-        }
 
-        let flattenReceivedData: [String: Any] = flattenDictionary(dict: receivedData)
-        XCTAssertEqual(8, flattenReceivedData.count)
-        XCTAssertEqual("locationHint:result", flattenReceivedData["type"] as? String)
-        XCTAssertEqual("123", flattenReceivedData["requestId"] as? String)
-        XCTAssertEqual("EdgeNetwork", flattenReceivedData["payload[0].scope"] as? String)
-        XCTAssertEqual("or2", flattenReceivedData["payload[0].hint"] as? String)
-        XCTAssertEqual(1800, flattenReceivedData["payload[0].ttlSeconds"] as? Int)
-        XCTAssertEqual("Target", flattenReceivedData["payload[1].scope"] as? String)
-        XCTAssertEqual("edge34", flattenReceivedData["payload[1].hint"] as? String)
-        XCTAssertEqual(600, flattenReceivedData["payload[1].ttlSeconds"] as? Int)
+        let expected = """
+        {
+          "payload": [
+            {
+              "hint": "or2",
+              "scope": "EdgeNetwork",
+              "ttlSeconds": 1800
+            },
+            {
+              "hint": "edge34",
+              "scope": "Target",
+              "ttlSeconds": 600
+            }
+          ],
+          "requestId": "123",
+          "type": "locationHint:result"
+        }
+        """
+
+        assertEqual(expected: expected, actual: dispatchEvents[0])
     }
 
     /// Tests that when an event is processed after a reset event that the location hint is updated
@@ -855,7 +1150,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -893,7 +1188,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
 
         networkResponseHandler.setLastReset(date: Date(timeIntervalSince1970: Date().timeIntervalSince1970 + 10)) // date is after `event.timestamp` // date is after `event.timestamp`
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -932,7 +1227,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -970,7 +1265,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1006,7 +1301,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1042,7 +1337,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1091,7 +1386,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1126,7 +1421,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1162,7 +1457,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1197,7 +1492,7 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         networkResponseHandler.addWaitingEvents(requestId: "d81c93e5-7558-4996-a93c-489d550748b8",
                                                 batchedEvents: [event])
 
-        setExpectationEvent(type: FunctionalTestConst.EventType.EDGE, source: FunctionalTestConst.EventSource.RESPONSE_CONTENT, expectedCount: 1)
+        setExpectationEvent(type: TestConstants.EventType.EDGE, source: TestConstants.EventSource.RESPONSE_CONTENT, expectedCount: 1)
         let jsonResponse = "{\n" +
             "      \"requestId\": \"d81c93e5-7558-4996-a93c-489d550748b8\",\n" +
             "      \"handle\": [" +
@@ -1217,5 +1512,102 @@ class NetworkResponseHandlerFunctionalTests: FunctionalTestBase {
         // verify saved location hint
         XCTAssertNil(locationHintResultHint)
         XCTAssertNil(locationHintResultTtlSeconds)
+    }
+
+    // MARK: processResponseOnComplete
+    func testProcessResponseOnComplete_ifCompletionEventNotRequested_doesNotDispatchEvent() {
+        networkResponseHandler.addWaitingEvent(requestId: "123", event: event1)
+        networkResponseHandler.processResponseOnComplete(requestId: "123")
+
+        assertUnexpectedEvents()
+    }
+
+    func testProcessResponseOnComplete_whenNoEventRequestsCompletion_thenNoEventDispatched() {
+        networkResponseHandler.addWaitingEvents(requestId: "123", batchedEvents: [event1, event2])
+        networkResponseHandler.processResponseOnComplete(requestId: "123")
+
+        assertUnexpectedEvents()
+    }
+
+    func testProcessResponseOnComplete_whenEventRequestsCompletion_thenDispatchCompleteEvent() {
+        let requestID = "123"
+        let requestEvent1 = Event(name: "test1", type: "testType", source: "testSource", data: requestSendCompletionTrueEventData)
+        networkResponseHandler.addWaitingEvent(requestId: requestID, event: requestEvent1)
+        networkResponseHandler.processResponseOnComplete(requestId: requestID)
+        let dispatchedEvents = getDispatchedEventsWith(type: EventType.edge, source: TestConstants.EventSource.CONTENT_COMPLETE)
+
+        XCTAssertEqual(1, dispatchedEvents.count)
+
+        let expectedEventData = """
+        {
+            "requestId": "\(requestID)"
+        }
+        """
+        assertResponseCompleteEventWithData(expectedEventData: expectedEventData, parentEventIDs: [requestEvent1.id])
+    }
+
+    func testProcessResponseOnComplete_ifCompletionEventRequested_dispatchesEvent() {
+        let requestID = "123"
+        let requestEvent1 = Event(name: "test1", type: "testType", source: "testSource", data: requestSendCompletionTrueEventData)
+        let requestEvent2 = Event(name: "test2", type: "testType", source: "testSource", data: nil)
+        networkResponseHandler.addWaitingEvents(requestId: requestID, batchedEvents: [requestEvent1, requestEvent2])
+        networkResponseHandler.processResponseOnComplete(requestId: requestID)
+
+        let expectedEventData = """
+        {
+            "requestId": "\(requestID)"
+        }
+        """
+
+        assertResponseCompleteEventWithData(expectedEventData: expectedEventData, parentEventIDs: [requestEvent1.id])
+    }
+
+    func testProcessResponseOnComplete_ifMultipleCompletionEventRequested_dispatchesMultipleEvents() {
+        let requestID = "123"
+        let requestEvent1 = Event(name: "test1", type: "testType", source: "testSource", data: requestSendCompletionTrueEventData)
+        let requestEvent2 = Event(name: "test2", type: "testType", source: "testSource", data: requestSendCompletionTrueEventData)
+
+        networkResponseHandler.addWaitingEvents(requestId: requestID, batchedEvents: [requestEvent1, requestEvent2])
+        networkResponseHandler.processResponseOnComplete(requestId: requestID)
+
+        let expectedEventData = """
+        {
+            "requestId": "\(requestID)"
+        }
+        """
+
+        assertResponseCompleteEventWithData(expectedEventData: expectedEventData, parentEventIDs: [requestEvent1.id, requestEvent2.id])
+    }
+
+    func testProcessResponseOnComplete_ifCompletionEventRequestFalse_doesNotDispatchEvent() {
+        let requestID = "123"
+        let requestEvent1 = Event(name: "test1", type: "testType", source: "testSource", data: requestSendCompletionFalseEventData)
+        let requestEvent2 = Event(name: "test2", type: "testType", source: "testSource", data: requestSendCompletionTrueEventData)
+
+        networkResponseHandler.addWaitingEvents(requestId: requestID, batchedEvents: [requestEvent1, requestEvent2])
+        networkResponseHandler.processResponseOnComplete(requestId: requestID)
+
+        let expectedEventData = """
+        {
+            "requestId": "\(requestID)"
+        }
+        """
+
+        assertResponseCompleteEventWithData(expectedEventData: expectedEventData, parentEventIDs: [requestEvent2.id])
+    }
+
+    private func assertResponseCompleteEventWithData(expectedEventData: String, parentEventIDs: [UUID], file: StaticString = #file, line: UInt = #line) {
+        let dispatchedCompleteEvents = getDispatchedEventsWith(type: EventType.edge, source: TestConstants.EventSource.CONTENT_COMPLETE)
+        XCTAssertEqual(parentEventIDs.count, dispatchedCompleteEvents.count)
+
+        for (id, completeEvent) in zip(parentEventIDs, dispatchedCompleteEvents) {
+            XCTAssertEqual(TestConstants.EventName.CONTENT_COMPLETE, completeEvent.name)
+            XCTAssertEqual(TestConstants.EventType.EDGE, completeEvent.type)
+            XCTAssertEqual(TestConstants.EventSource.CONTENT_COMPLETE, completeEvent.source)
+            XCTAssertEqual(id, completeEvent.responseID)
+            XCTAssertEqual(id, completeEvent.parentID)
+
+            assertEqual(expected: expectedEventData, actual: completeEvent, file: file, line: line)
+        }
     }
 }

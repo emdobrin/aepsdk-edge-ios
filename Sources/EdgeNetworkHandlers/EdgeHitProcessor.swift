@@ -19,25 +19,22 @@ class EdgeHitProcessor: HitProcessing {
     private let SELF_TAG = "EdgeHitProcessor"
     private var networkService: EdgeNetworkService
     private var networkResponseHandler: NetworkResponseHandler
-    private var getSharedState: (String, Event?) -> SharedStateResult?
-    private var getXDMSharedState: (String, Event?, Bool) -> SharedStateResult?
+    private var sharedStateReader: SharedStateReader
     private var readyForEvent: (Event) -> Bool
     private var getImplementationDetails: () -> [String: Any]?
     private var getLocationHint: () -> String?
-    private var entityRetryIntervalMapping = ThreadSafeDictionary<String, TimeInterval>()
+    private let entityRetryIntervalMapping = ThreadSafeDictionary<String, TimeInterval>()
     private let VALID_PATH_REGEX_PATTERN = "^\\/[/.a-zA-Z0-9-~_]+$"
 
     init(networkService: EdgeNetworkService,
          networkResponseHandler: NetworkResponseHandler,
-         getSharedState: @escaping (String, Event?) -> SharedStateResult?,
-         getXDMSharedState: @escaping (String, Event?, Bool) -> SharedStateResult?,
+         sharedStateReader: SharedStateReader,
          readyForEvent: @escaping (Event) -> Bool,
          getImplementationDetails: @escaping () -> [String: Any]?,
          getLocationHint: @escaping () -> String?) {
         self.networkService = networkService
         self.networkResponseHandler = networkResponseHandler
-        self.getSharedState = getSharedState
-        self.getXDMSharedState = getXDMSharedState
+        self.sharedStateReader = sharedStateReader
         self.readyForEvent = readyForEvent
         self.getImplementationDetails = getImplementationDetails
         self.getLocationHint = getLocationHint
@@ -49,6 +46,10 @@ class EdgeHitProcessor: HitProcessing {
         return entityRetryIntervalMapping[entity.uniqueIdentifier] ?? EdgeConstants.Defaults.RETRY_INTERVAL
     }
 
+    /// Processes DataEntity events in the order they were retrieved from the database. Upon decoding sends the necessary events to the corresponding endpoint (e.g. Experience or Consent events).
+    /// - Parameters:
+    ///   - entity: the `DataEntity` to be processed
+    ///   - completion: completion handler to notify the caller about the hit response
     func processHit(entity: DataEntity, completion: @escaping (Bool) -> Void) {
         guard let edgeEntity = decode(dataEntity: entity) else {
             // can't convert data to hit, unrecoverable error, move to next hit
@@ -57,16 +58,22 @@ class EdgeHitProcessor: HitProcessing {
         }
 
         let event = edgeEntity.event
-        guard readyForEvent(event) else {
-            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Not ready for event, will retry hit with id '\(entity.uniqueIdentifier)'.")
-            completion(false)
-            return
-        }
+        var edgeConfig: [String: String]
 
-        // fetch config keys for Edge extension
-        guard let edgeConfig = getEdgeConfig(event: event), let configId = edgeConfig[EdgeConstants.SharedState.Configuration.CONFIG_ID] else {
-            completion(true)
-            return // drop current event
+        // Check which workflow is used to obtain configuration
+        if !edgeEntity.configuration.isEmpty {
+            // Current workflow includes needed configuration in EdgeDataEntity before queuing hit
+            edgeConfig = AnyCodable.toAnyDictionary(dictionary: edgeEntity.configuration) as? [String: String] ?? [:]
+        } else {
+            // Older workflow is supported in cases where persisted hits were queued before upgrade, but processed after upgrade
+            // These hits will not have configuration in EdgeDataEntity, so the Configuration shared state is queried
+            guard readyForEvent(event) else {
+                Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Not ready for event, will retry hit with id '\(entity.uniqueIdentifier)'.")
+                completion(false)
+                return
+            }
+
+            edgeConfig = sharedStateReader.getEdgeConfig(event: event)
         }
 
         // Build Request object
@@ -80,69 +87,125 @@ class EdgeHitProcessor: HitProcessing {
         requestBuilder.enableResponseStreaming(recordSeparator: EdgeConstants.Defaults.RECORD_SEPARATOR,
                                                lineFeed: EdgeConstants.Defaults.LINE_FEED)
 
-        // Get location hint for request endpoint
-        let locationHint = getLocationHint()
-
         if event.isExperienceEvent {
-            guard let eventData = event.data, !eventData.isEmpty else {
-                Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Failed to process Experience event, data was nil or empty")
-                completion(true)
-                return
-            }
-
-            if let implementationDetails = getImplementationDetails() {
-                requestBuilder.xdmPayloads[EdgeConstants.JsonKeys.IMPLEMENTATION_DETAILS] = AnyCodable(implementationDetails)
-            }
-
-            // Build and send the network request to Experience Edge
-            let listOfEvents: [Event] = [event]
-
-            guard let requestPayload = requestBuilder.getPayloadWithExperienceEvents(listOfEvents) else {
-                Log.debug(label: EdgeConstants.LOG_TAG,
-                          "\(SELF_TAG) - Failed to build the request payload, dropping event '\(event.id.uuidString)'.")
-                completion(true)
-                return
-            }
-
-            let requestProperties = getRequestProperties(from: event)
-            let endpoint = buildEdgeEndpoint(config: edgeConfig,
-                                             requestType: EdgeRequestType.interact,
-                                             requestProperties: requestProperties,
-                                             locationHint: locationHint)
-            let edgeHit = ExperienceEventsEdgeHit(endpoint: endpoint, configId: configId, request: requestPayload)
-            // NOTE: the order of these events needs to be maintained as they were sent in the network request
-            // otherwise the response callback cannot be matched
-            networkResponseHandler.addWaitingEvents(requestId: edgeHit.requestId,
-                                                    batchedEvents: listOfEvents)
-            sendHit(entityId: entity.uniqueIdentifier, edgeHit: edgeHit, headers: getRequestHeaders(event), completion: completion)
+            processExperienceEvent(entityId: entity.uniqueIdentifier, event: event, edgeConfig: edgeConfig, requestBuilder: requestBuilder, completion: completion)
         } else if event.isUpdateConsentEvent {
-            guard let eventData = event.data, !eventData.isEmpty else {
-                Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Failed to process Consent event, data was nil or empty")
-                completion(true)
-                return
-            }
-
-            // Build and send the consent network request to Experience Edge
-            guard let consentPayload = requestBuilder.getConsentPayload(event) else {
-                Log.debug(label: EdgeConstants.LOG_TAG,
-                          "\(SELF_TAG) - Failed to build the consent payload, dropping event '\(event.id.uuidString)'.")
-                completion(true)
-                return
-            }
-
-            let endpoint = buildEdgeEndpoint(config: edgeConfig,
-                                             requestType: EdgeRequestType.consent,
-                                             requestProperties: nil,
-                                             locationHint: locationHint)
-            let edgeHit = ConsentEdgeHit(endpoint: endpoint, configId: configId, consents: consentPayload)
-            networkResponseHandler.addWaitingEvent(requestId: edgeHit.requestId, event: event)
-            sendHit(entityId: entity.uniqueIdentifier, edgeHit: edgeHit, headers: getRequestHeaders(event), completion: completion)
+            processConsentEvents(entityId: entity.uniqueIdentifier, event: event, edgeConfig: edgeConfig, requestBuilder: requestBuilder, completion: completion)
         } else if event.isResetIdentitiesEvent {
             // reset stored payloads as part of processing the reset hit
             let storeResponsePayloadManager = StoreResponsePayloadManager(EdgeConstants.DataStoreKeys.STORE_NAME)
             storeResponsePayloadManager.deleteAllStorePayloads()
             completion(true)
         }
+    }
+
+    /// Processes events of type ExperienceEvent
+    /// - Parameters:
+    ///   - entityId: unique id of the `DataEntity` used when the hit needs to be retried.
+    ///   - event: event to be processed.
+    ///   - eventConfig: configuration data for this event.
+    ///   - requestBuilder: the `RequestBuilder` object to build the request payload.
+    ///   - completion: completion handler to notify the caller about the hit response.
+    private func processExperienceEvent(entityId: String, event: Event, edgeConfig: [String: String], requestBuilder: RequestBuilder, completion: @escaping (Bool) -> Void) {
+        guard var datastreamId = edgeConfig[EdgeConstants.SharedState.Configuration.CONFIG_ID], !datastreamId.isEmpty else {
+            Log.warning(label: EdgeConstants.LOG_TAG,
+                        "\(SELF_TAG) - Unable to process the event '\(event.id.uuidString)' " +
+                            "due to missing or empty edge.configId in configuration.")
+            completion(true)
+            return // drop the current event
+        }
+
+        guard let eventData = event.data, !eventData.isEmpty else {
+            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Failed to process Experience event, data was nil or empty")
+            completion(true)
+            return
+        }
+
+        // Get location hint for request endpoint
+        let locationHint = getLocationHint()
+
+        if let implementationDetails = getImplementationDetails() {
+            requestBuilder.xdmPayloads[EdgeConstants.JsonKeys.IMPLEMENTATION_DETAILS] = AnyCodable(implementationDetails)
+        }
+
+        // Check if datastream ID override is present
+        if let datastreamIdOverride = event.config?[EdgeConstants.EventDataKeys.Config.DATASTREAM_ID_OVERRIDE] as? String, !datastreamIdOverride.isEmpty {
+            // Attach original datastream ID to the outgoing request
+            requestBuilder.sdkConfig = SDKConfig(datastream: Datastream(original: datastreamId))
+
+            // Update datastream ID for request since valid override ID is present
+            datastreamId = datastreamIdOverride
+        }
+
+        // Check if datastream config override is present
+        if let datastreamConfigOverride = event.config?[EdgeConstants.EventDataKeys.Config.DATASTREAM_CONFIG_OVERRIDE] as? [String: Any], !datastreamConfigOverride.isEmpty {
+            requestBuilder.configOverrides = AnyCodable.from(dictionary: datastreamConfigOverride)
+        }
+
+        // Build and send the network request to Experience Edge
+        let listOfEvents: [Event] = [event]
+
+        guard let requestPayload = requestBuilder.getPayloadWithExperienceEvents(listOfEvents) else {
+            Log.debug(label: EdgeConstants.LOG_TAG,
+                      "\(SELF_TAG) - Failed to build the request payload, dropping event '\(event.id.uuidString)'.")
+            completion(true)
+            return
+        }
+
+        let requestProperties = getRequestProperties(from: event)
+        let endpoint = buildEdgeEndpoint(config: edgeConfig,
+                                         requestType: EdgeRequestType.interact,
+                                         requestProperties: requestProperties,
+                                         locationHint: locationHint)
+
+        let edgeHit = ExperienceEventsEdgeHit(endpoint: endpoint, datastreamId: datastreamId, request: requestPayload)
+        // NOTE: the order of these events needs to be maintained as they were sent in the network request
+        // otherwise the response callback cannot be matched
+        networkResponseHandler.addWaitingEvents(requestId: edgeHit.requestId,
+                                                batchedEvents: listOfEvents)
+        sendHit(entityId: entityId, edgeHit: edgeHit, headers: getRequestHeaders(event), completion: completion)
+    }
+
+    /// Processes events of type Consent
+    /// - Parameters:
+    ///   - entityId: unique id of the `DataEntity`.
+    ///   - event: event to be processed.
+    ///   - edgeConfig: configuration data for this event.
+    ///   - requestBuilder: the `RequestBuilder` object to build the request payload.
+    ///   - completion: completion handler to notify the caller about the hit response.
+    private func processConsentEvents(entityId: String, event: Event, edgeConfig: [String: String], requestBuilder: RequestBuilder, completion: @escaping (Bool) -> Void) {
+        guard let datastreamId = edgeConfig[EdgeConstants.SharedState.Configuration.CONFIG_ID], !datastreamId.isEmpty else {
+            Log.warning(label: EdgeConstants.LOG_TAG,
+                        "\(SELF_TAG) - Unable to process the event '\(event.id.uuidString)' " +
+                            "due to missing or empty edge.configId in configuration.")
+            completion(true)
+            return // drop current event
+        }
+
+        guard let eventData = event.data, !eventData.isEmpty else {
+            Log.debug(label: EdgeConstants.LOG_TAG, "\(SELF_TAG) - Failed to process Consent event, data was nil or empty")
+            completion(true)
+            return
+        }
+
+        // Build and send the consent network request to Experience Edge
+        guard let consentPayload = requestBuilder.getConsentPayload(event) else {
+            Log.debug(label: EdgeConstants.LOG_TAG,
+                      "\(SELF_TAG) - Failed to build the consent payload, dropping event '\(event.id.uuidString)'.")
+            completion(true)
+            return
+        }
+
+        // Get location hint for request endpoint
+        let locationHint = getLocationHint()
+
+        let endpoint = buildEdgeEndpoint(config: edgeConfig,
+                                         requestType: EdgeRequestType.consent,
+                                         requestProperties: nil,
+                                         locationHint: locationHint)
+        let edgeHit = ConsentEdgeHit(endpoint: endpoint, datastreamId: datastreamId, consents: consentPayload)
+        networkResponseHandler.addWaitingEvent(requestId: edgeHit.requestId, event: event)
+        sendHit(entityId: entityId, edgeHit: edgeHit, headers: getRequestHeaders(event), completion: completion)
     }
 
     /// Builds the endpoint based on the provided config info and `EdgeRequestType`
@@ -179,7 +242,7 @@ class EdgeHitProcessor: HitProcessing {
     ///   - completion: completion handler for the hit processor
     private func sendHit(entityId: String, edgeHit: EdgeHit, headers: [String: String], completion: @escaping (Bool) -> Void) {
         guard let url = networkService.buildUrl(endpoint: edgeHit.endpoint,
-                                                configId: edgeHit.configId,
+                                                datastreamId: edgeHit.datastreamId,
                                                 requestId: edgeHit.requestId) else {
             Log.debug(label: EdgeConstants.LOG_TAG,
                       "\(SELF_TAG) - Failed to build the URL, dropping request with id '\(edgeHit.requestId)'.")
@@ -193,39 +256,12 @@ class EdgeHitProcessor: HitProcessing {
                                  requestHeaders: headers,
                                  streaming: edgeHit.getStreamingSettings(),
                                  responseCallback: callback) { [weak self] success, retryInterval in
-            // remove any retry interval if success, otherwise add to retry mapping
-            self?.entityRetryIntervalMapping[entityId] = success ? nil : retryInterval
+            if let self = self {
+                // remove any retry interval if success, otherwise add to retry mapping
+                self.entityRetryIntervalMapping[entityId] = success ? nil : retryInterval
+            }
             completion(success)
         }
-    }
-
-    /// Extracts all the Edge configuration keys from the Configuration shared state
-    /// - Parameter event: current event for which the configuration is required
-    /// - Returns: the Edge configuration keys with values, nil if edge.configId was not found
-    private func getEdgeConfig(event: Event) -> [String: String]? {
-        guard let configSharedState =
-                getSharedState(EdgeConstants.SharedState.Configuration.STATE_OWNER_NAME,
-                               event)?.value else {
-            Log.warning(label: EdgeConstants.LOG_TAG,
-                        "\(SELF_TAG) - Unable to process the event '\(event.id.uuidString)', Configuration is nil.")
-            return nil
-        }
-
-        guard let configId =
-                configSharedState[EdgeConstants.SharedState.Configuration.CONFIG_ID] as? String,
-              !configId.isEmpty else {
-            Log.warning(label: EdgeConstants.LOG_TAG,
-                        "\(SELF_TAG) - Unable to process the event '\(event.id.uuidString)' " +
-                            "due to invalid edge.configId in configuration.")
-            return nil
-        }
-
-        var config: [String: String] = [:]
-        config[EdgeConstants.SharedState.Configuration.CONFIG_ID] = configId
-        config[EdgeConstants.SharedState.Configuration.EDGE_ENVIRONMENT] = configSharedState[EdgeConstants.SharedState.Configuration.EDGE_ENVIRONMENT] as? String
-        config[EdgeConstants.SharedState.Configuration.EDGE_DOMAIN] = configSharedState[EdgeConstants.SharedState.Configuration.EDGE_DOMAIN] as? String
-
-        return config
     }
 
     /// Computes the request headers for provided `event`, including the `Assurance` integration identifier when `Assurance` is enabled
@@ -233,10 +269,8 @@ class EdgeHitProcessor: HitProcessing {
     private func getRequestHeaders(_ event: Event) -> [String: String] {
         // get Assurance integration id and include it in to the requestHeaders
         var requestHeaders: [String: String] = [:]
-        if let assuranceSharedState = getSharedState(EdgeConstants.SharedState.Assurance.STATE_OWNER_NAME, event)?.value {
-            if let assuranceIntegrationId = assuranceSharedState[EdgeConstants.SharedState.Assurance.INTEGRATION_ID] as? String {
-                requestHeaders[EdgeConstants.NetworkKeys.HEADER_KEY_AEP_VALIDATION_TOKEN] = assuranceIntegrationId
-            }
+        if let assuranceIntegrationId = sharedStateReader.getAssuranceIntegrationId(event: event) {
+            requestHeaders[EdgeConstants.NetworkKeys.HEADER_KEY_AEP_VALIDATION_TOKEN] = assuranceIntegrationId
         }
 
         return requestHeaders

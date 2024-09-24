@@ -11,9 +11,10 @@
 //
 
 import AEPCore
+import AEPTestUtils
 import XCTest
 
-/// Extension used to 'fake' an Identity extension and allows tests to clear and set the Identity shared state. Use it along with `FunctionalTestBase`
+/// Extension used to 'fake' an Identity extension and allows tests to clear and set the Identity shared state. Use it along with `TestBase`
 /// Cannot be used along with another Identity Extension which is registered with ACPCore.
 class FakeIdentityExtension: NSObject, Extension {
     private static let logTag = "FakeIdentityExtension"

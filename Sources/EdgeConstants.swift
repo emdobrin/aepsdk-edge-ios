@@ -15,7 +15,7 @@ import Foundation
 enum EdgeConstants {
 
     static let EXTENSION_NAME = "com.adobe.edge"
-    static let EXTENSION_VERSION = "1.5.0"
+    static let EXTENSION_VERSION = "5.0.2"
     static let FRIENDLY_NAME = "AEPEdge"
     static let LOG_TAG = FRIENDLY_NAME
 
@@ -24,6 +24,7 @@ enum EdgeConstants {
     }
 
     enum EventName {
+        static let CONTENT_COMPLETE = "AEP Response Complete"
         static let REQUEST_CONTENT = "AEP Request Event"
         static let RESPONSE_CONTENT = "AEP Response Event Handle"
         static let ERROR_RESPONSE_CONTENT = "AEP Error Response"
@@ -45,9 +46,17 @@ enum EdgeConstants {
         static let CONSENTS = "consents"
         static let LOCATION_HINT = "locationHint"
 
+        enum Config {
+            static let KEY = "config"
+            static let DATASTREAM_ID_OVERRIDE = "datastreamIdOverride"
+            static let DATASTREAM_CONFIG_OVERRIDE = "datastreamConfigOverride"
+        }
+
         enum Request {
             static let KEY = "request"
             static let PATH = "path"
+            // sendCompletion - boolean flag to determine if a "complete" event is requested
+            static let SEND_COMPLETION = "sendCompletion"
         }
     }
 
@@ -152,7 +161,8 @@ enum EdgeConstants {
 
         enum ImplementationDetails {
             static let ENVIRONMENT_APP = "app"
-            static let BASE_NAMESPACE = "https://ns.adobe.com/experience/mobilesdk/ios"
+            static let BASE_NAMESPACE_IOS = "https://ns.adobe.com/experience/mobilesdk/ios"
+            static let BASE_NAMESPACE_TVOS = "https://ns.adobe.com/experience/mobilesdk/tvos"
             static let WRAPPER_REACT_NATIVE = "reactnative"
             static let WRAPPER_CORDOVA = "cordova"
             static let WRAPPER_FLUTTER = "flutter"

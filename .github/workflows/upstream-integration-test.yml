@@ -1,0 +1,122 @@
+# Action to execute upstream integration tests - Edge Network (Konductor)
+name: Integration Tests
+
+on:
+  # `*` is a special character in YAML so you have to quote this string
+  # Avoiding start of hour and other common times to avoid conflicts with peak times
+  schedule:
+    # Run every weekday at 12:16 PM PDT (Daylight saving time) -> 7:16 PM UTC
+    # Add +1 hour when back in PST
+    - cron:  '16 19 * * 1-5'
+
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to use when running integration tests'
+        required: false
+        default: 'main'
+      id:
+        description: 'Identifier for the run (optional)'
+        required: false
+      environment:
+        type: choice
+        description: 'Edge Network environment to test'
+        required: true
+        default: 'prod'
+        options:
+          - prod
+          - pre-prod
+          - int
+      edge-location-hint:
+        type: choice
+        description: 'Edge location hint to set before each test (optional)'
+        required: false
+        default: ''
+        options: 
+          - '' # Interpreted in the test code as no preset location hint; any non-valid location hint string is interpreted this way
+          - 'or2'
+          - 'va6'
+          - 'irl1'
+          - 'ind1'
+          - 'jpn3'
+          - 'sgp3'
+          - 'aus3'
+
+run-name: ${{ inputs.id }}
+
+jobs:
+  test-integration-upstream:
+    runs-on: macos-13
+    steps:
+    - name: Job run identifier ${{ github.event.inputs.id }}
+      id: job-run-identifier
+      run: |
+        if [ -z "${{ github.event.inputs.id }}" ]; then \
+          echo No job run identifier was set.
+        else
+          echo 'Job run identifier is:' ${{ inputs.id }}
+        fi;
+
+    - name: Checkout
+      id: checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.branch }}
+
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0.1'
+
+    - name: Cache Cocoapods
+      id: cache-cocoapods
+      uses: actions/cache@v3
+      with:
+        path: Pods
+        key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pods-
+
+    - name: Execute Edge Network integration tests
+      id: execute-integration-tests
+      run: make test-integration-upstream EDGE_ENVIRONMENT=${{ github.event.inputs.environment }} EDGE_LOCATION_HINT=${{ github.event.inputs.edge-location-hint }}
+
+    # Potential workflow solutions on job failure
+    # All workflow setup step failures give exit code 2, with 3 as fallback
+    # Actual integration test failures give exit code 1
+    - name: On failure
+      id: on-failure
+      if: ${{ failure() }}
+      env:
+        BRANCH: ${{ github.event.inputs.branch }}
+      run: |
+        echo "Job used branch: $BRANCH. Please make sure this is the branch to run off of."
+        
+        EXIT_CODE=3
+
+        if [[ "${{ steps.job-run-identifier.conclusion }}" == "failure" ]]; then
+          echo "Job step failed: Job run identifier."
+          EXIT_CODE=2
+        elif [[ "${{ steps.checkout.conclusion }}" == "failure" ]]; then
+          echo "Job step failed: Checkout."
+          EXIT_CODE=2
+        elif [[ "${{ steps.cache-cocoapods.conclusion }}" == "failure" ]]; then
+          echo "Job step failed: Cache Cocoapods."
+          EXIT_CODE=2
+        elif [[ "${{ steps.execute-integration-tests.conclusion }}" == "failure" ]]; then
+          echo "Job step failed: Execute Edge Network integration tests."
+          EXIT_CODE=1
+        else
+          echo "Job failed: Failure cause not identified."
+        fi
+
+        echo "EXIT_CODE=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+    - name: "{\"exitCode\":${{ steps.on-failure.outputs.EXIT_CODE || 0 }}}"
+      id: failure-data
+      if: ${{ failure() }}
+      run: |
+        echo 'exit code in the body: ${{ steps.on-failure.outputs.EXIT_CODE }}'
+        echo 'on-failure outputs: ${{ toJson(steps.on-failure.outputs) }}'
+        
+    
+

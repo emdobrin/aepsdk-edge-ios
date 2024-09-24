@@ -1,51 +1,67 @@
 PODS:
-  - AEPAssurance (3.0.1):
-    - AEPCore (>= 3.1.0)
-    - AEPServices (>= 3.1.0)
-  - AEPCore (3.7.1):
-    - AEPRulesEngine (>= 1.1.0)
-    - AEPServices (>= 3.7.1)
-  - AEPEdge (1.4.1):
-    - AEPCore (>= 3.5.0)
-    - AEPEdgeIdentity
-  - AEPEdgeConsent (1.0.1):
-    - AEPCore (>= 3.5.0)
-    - AEPEdge (>= 1.4.0)
-  - AEPEdgeIdentity (1.1.0):
-    - AEPCore (>= 3.6.0)
-  - AEPRulesEngine (1.2.0)
-  - AEPServices (3.7.1)
-  - SwiftLint (0.44.0)
+  - AEPAssurance (5.0.0):
+    - AEPCore (< 6.0.0, >= 5.0.0)
+    - AEPServices (< 6.0.0, >= 5.0.0)
+  - AEPCore (5.1.0):
+    - AEPRulesEngine (< 6.0.0, >= 5.0.0)
+    - AEPServices (< 6.0.0, >= 5.1.0)
+  - AEPEdge (5.0.2):
+    - AEPCore (< 6.0.0, >= 5.1.0)
+    - AEPEdgeIdentity (< 6.0.0, >= 5.0.0)
+  - AEPEdgeConsent (5.0.0):
+    - AEPCore (< 6.0.0, >= 5.0.0)
+    - AEPEdge (< 6.0.0, >= 5.0.0)
+  - AEPEdgeIdentity (5.0.0):
+    - AEPCore (< 6.0.0, >= 5.0.0)
+  - AEPRulesEngine (5.0.0)
+  - AEPServices (5.1.0)
+  - AEPTestUtils (5.0.0):
+    - AEPCore
+    - AEPServices
+  - SwiftLint (0.52.0)
 
 DEPENDENCIES:
   - AEPAssurance
   - AEPCore
+  - AEPEdge (from `./AEPEdge.podspec`)
   - AEPEdgeConsent
   - AEPEdgeIdentity
-  - AEPServices
-  - SwiftLint (= 0.44.0)
+  - AEPTestUtils (from `https://github.com/adobe/aepsdk-testutils-ios.git`, tag `5.0.0`)
+  - SwiftLint (= 0.52.0)
 
 SPEC REPOS:
   trunk:
     - AEPAssurance
     - AEPCore
-    - AEPEdge
     - AEPEdgeConsent
     - AEPEdgeIdentity
     - AEPRulesEngine
     - AEPServices
     - SwiftLint
 
+EXTERNAL SOURCES:
+  AEPEdge:
+    :path: "./AEPEdge.podspec"
+  AEPTestUtils:
+    :git: https://github.com/adobe/aepsdk-testutils-ios.git
+    :tag: 5.0.0
+
+CHECKOUT OPTIONS:
+  AEPTestUtils:
+    :git: https://github.com/adobe/aepsdk-testutils-ios.git
+    :tag: 5.0.0
+
 SPEC CHECKSUMS:
-  AEPAssurance: b25880cd4b14f22c61a1dce19807bd0ca0fe9b17
-  AEPCore: 412fe933382892ab6c6af958d2f69ebcbca11216
-  AEPEdge: 6faf60328f9e5ae7a107fd61f9a968f46ebf2928
-  AEPEdgeConsent: a23b35ab331d2aa2013fcef49c9d6b80085d5597
-  AEPEdgeIdentity: 47f0c6ecbec5857b2a8cb9b7bf717c2424c6bae0
-  AEPRulesEngine: 71228dfdac24c9ded09be13e3257a7eb22468ccc
-  AEPServices: 7284c30359c789cd16bf366b4ea81094a66d21ab
-  SwiftLint: e96c0a8c770c7ebbc4d36c55baf9096bb65c4584
+  AEPAssurance: 7f260ded4df38a70a06efebade8c33a3e3221984
+  AEPCore: 55489e1c4e48a88659055f8e96290f2cccce9747
+  AEPEdge: edf73ae8900016940cd7fcb29a89a576a1c6b0ae
+  AEPEdgeConsent: d7db1d19eb4c1e2146360ed3c8df315f671b26d5
+  AEPEdgeIdentity: 3161ff33434586962946912d6b8e9e8fca1c4d23
+  AEPRulesEngine: fe5800653a4bee07b1e41e61b4d5551f0dba557b
+  AEPServices: c38b809c32336f10f773525e65c71a949abe54a7
+  AEPTestUtils: 20495b368da57904ca2e9f241d1d8b114f9887b5
+  SwiftLint: 13280e21cdda6786ad908dc6e416afe5acd1fcb7
 
-PODFILE CHECKSUM: 17831f176b9e10833aa35d43d5b8b873117ce5a1
+PODFILE CHECKSUM: 559b845c969523123ac98dd7a3e4559871b3c2aa
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.13.0
