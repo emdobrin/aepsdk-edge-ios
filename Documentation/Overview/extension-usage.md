@@ -536,11 +536,3 @@ _Event data example for Experience Edge Error event:_
   }
 }
 ```
-
-
-
-**Shared state and extension name**
-
-com.adobe.edge
-
-No data is shared as Shared state by the Edge extension in the current version. 
