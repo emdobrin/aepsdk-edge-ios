@@ -1,7 +1,7 @@
 # Edge Extension Documentation
 
 ## Contents
-- [Getting started](getting-started.md)
-- [API reference](api-reference.md)
-- [Extension usage examples](extension-usage.md)
+- [Getting started](Overview/getting-started.md)
+- [API reference](Overview/api-reference.md)
+- [Extension usage examples](Overview/extension-usage.md)
 - [Tutorials](Tutorials/README.md)
