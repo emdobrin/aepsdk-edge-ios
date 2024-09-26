@@ -1,6 +1,6 @@
 # How should my Edge request look like
 
-The AEP Edge Network mobile extension handles multiple types of events that are delivered to the Adobe Edge Network through network calls.
+The Edge mobile extension handles multiple types of events that are delivered to the Adobe Edge Network through network calls.
 
 In version 1.x and above, the extension integrates with /v1 of the interact and privacy APIs.
 
@@ -13,7 +13,7 @@ In version 1.x and above, the extension integrates with /v1 of the interact and 
 
 ## Data collection
 
-When using the Edge.sendEvent API or sending an Experience event through the Event Hub, the Edge extension processes this event and initiates a request to `https://<edgedomain>/ee/v1/interact` endpoint.
+When using the `Edge.sendEvent` API or sending an `Experience event` through the Event Hub, the Edge extension processes this event and initiates a request to `https://<edgedomain>/ee/v1/interact` endpoint.
 This means the Edge mobile extension uses the interactive mode of the data collection endpoint, in which case the client expects back responses from the server that enable you for use-cases like personalization or other updates that the services need to bring down to the client.
 
 #### Request example
@@ -115,4 +115,4 @@ https://example.data.adobedc.net/ee/v1/privacy/set-consent?configId=datastreamId
 }
 ```
 
-For more details, see also the [Edge Network Server API overview](https://experienceleague.adobe.com/docs/experience-platform/edge-network-server-api/overview.html).
+For more details, see also the [Edge Network Server API overview](https://experienceleague.adobe.com/en/docs/experience-platform/edge-network-server-api/overview).

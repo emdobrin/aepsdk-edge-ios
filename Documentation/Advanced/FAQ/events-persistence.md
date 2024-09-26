@@ -5,7 +5,7 @@ Short answer is yes, offline tracking is supported. The Edge extension uses a pe
 ## Use-cases for which a queueing mechanism is required
 
 * On a mobile device it is common that the user may encounter network connectivity issues or low internet bandwidth, or the application operates in an offline scenario for a longer period of time.
-* The extension accounts for unexpected errors, for example when the service is temporarily unavailable or in case the server returns 429 Too Many Requests HTTP response.
+* In case of unexpected server errors, for example when the service is temporarily unavailable or in case the server returns 429 Too Many Requests HTTP response.
 
 In these use-cases, the network request is retried after a cool down period.
 
@@ -27,7 +27,8 @@ If an event failed to be sent to the Adobe Edge Network because of one of the fo
     - 503 Service Unavailable
     - 504 Gateway Timeout
 
-In some cases, for example in case of a 429 or 503 Service Unavailable, the server may return a `Retry-After` response header. The client uses this value as a cool down timeout until the next retry is executed.
+In some cases, for example in case of a 429 or 503 Service Unavailable, the server may return a `Retry-After` response header. The client uses this value as the cool down timeout until the next retry is executed.
 
 ## Is events batching supported?
-Batching is currently not supported in the Edge extension. The hits are queued and processed individual network requests.
+
+Batching is currently not supported in the Edge extension. The hits are queued and processed as individual network requests.

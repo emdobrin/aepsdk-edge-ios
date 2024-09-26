@@ -17,7 +17,7 @@ For any other unknown values, the extension defaults to production environment.
 
 ### Update the environment for testing
 
-In order to update the environment, use the MobileCore [updateConfiguration API](https://aep-sdks.gitbook.io/docs/foundation-extensions/mobile-core/configuration/configuration-api-reference#updateconfiguration) with one of the config value above.
+In order to update the environment, use the [MobileCore.updateConfigurationWith(configDict: config)](https://github.com/adobe/aepsdk-core-ios/blob/main/Documentation/Usage/MobileCore.md) API with one of the config values enumerated above.
 
 #### Swift
 
@@ -38,5 +38,5 @@ NSDictionary *updatedConfig = @{@"edge.environment": @"pre-prod"};
 ### Cleanup after test
 
 Once you completed your test, you may revert to the default production environment by using one of these options:
-* Use MobileCore [clearUpdatedConfiguration API](https://aep-sdks.gitbook.io/docs/foundation-extensions/mobile-core/configuration/configuration-api-reference#clearupdatedconfiguration). Please note that this will clear all the config keys that were previously set programmatically.
-* Use MobileCore updateConfiguration API to update the "edge.environment" to "prod".
+* Use the [MobileCore.clearUpdatedConfiguration](https://github.com/adobe/aepsdk-core-ios/blob/main/Documentation/Usage/MobileCore.md) API. Please note that this will clear all the config keys that were previously set programmatically.
+* Use the [MobileCore.updateConfigurationWith(configDict: config) API](https://github.com/adobe/aepsdk-core-ios/blob/main/Documentation/Usage/MobileCore.md) API to set the "edge.environment" to "prod".
