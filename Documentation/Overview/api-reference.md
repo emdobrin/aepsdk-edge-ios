@@ -7,7 +7,7 @@ Refer to the [Getting started guide](getting-started.md).
 ## API reference
 
 - [extensionVersion](#extensionversion)
-- [getLocationHint](#getLocationHint)
+- [getLocationHint](#getlocationhint)
 - [registerExtension](#registerextension)
 - [resetIdentities](#resetidentities)
 - [sendEvent](#sendevent)

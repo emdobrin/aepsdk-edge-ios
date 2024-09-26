@@ -2,9 +2,11 @@
 
 ## Before starting
 
-The Adobe Experience Platform Edge Network extension has the following peer dependencies, which must be installed to use the Edge Network extension:
-- [AEPCore](https://github.com/adobe/aepsdk-core-ios#readme)
-- [AEPEdgeIdentity](https://github.com/adobe/aepsdk-edgeidentity-ios#readme)
+The Adobe Experience Platform Edge Network extension requires the following extensions:
+- [AEPCore](https://github.com/adobe/aepsdk-core-ios.git) extension that provides the foundation APIs for any AEP Mobile SDK extension, including EventHub and Services.
+- [AEPEdgeIdentity](https://github.com/adobe/aepsdk-edgeidentity-ios.git) extension that provides identity information, such as the Experience Cloud ID (ECID) in XDM IdentityMap format.
+
+As a first step, install and configure the extensions above, then continue with the steps below.
 
 ## Configure the Edge Network extension in Data Collection UI
 1. Log into [Adobe Experience Platform Data Collection](https://experience.adobe.com/data-collection).
@@ -87,6 +89,20 @@ targets: [
   ```bash
   $ pod install
   ```
+
+#### Using binaries
+
+To generate an `AEPEdge.xcframework`, run the following command:
+
+  ```ruby
+  $ make archive
+  ```
+
+This generates the xcframework under the `build` folder. Drag and drop all the `.xcframeworks` to your app target in Xcode.
+
+Repeat these steps for each of the required dependencies:
+- [AEPCore](https://github.com/adobe/aepsdk-core-ios#binaries)
+- [AEPEdgeIdentity](https://github.com/adobe/aepsdk-edgeidentity-ios#binaries)
 
 ### Import and register Edge extension
 

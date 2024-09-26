@@ -1,7 +1,29 @@
-# Edge Extension Documentation
+# Edge Network iOS mobile extension documentation
 
 ## Contents
-- [Getting started](Overview/getting-started.md)
-- [API reference](Overview/api-reference.md)
-- [Extension usage examples](Overview/extension-usage.md)
-- [Tutorials](Tutorials/README.md)
+
+### Overview
+* [Getting started](Overview/getting-started.md)
+* [API reference](Overview/api-reference.md)
+* [Extension usage examples](Overview/extension-usage.md)
+* [Extension integrations](Overview/integrations.md)
+* [Validation with Adobe Assurance](Overview/validation.md)
+
+### Tutorials
+* [Implementing the Edge extension to send event data to the Edge Network](Tutorials/edge-send-event-tutorial.md)
+
+### Advanced extension documentation
+* Extension data reference
+  * [Event reference](Advanced/ExtensionDataReference/event-reference.md)
+  * [Shared state reference](Advanced/ExtensionDataReference/shared-state-reference.md)
+  * [Configuration keys](Advanced/ExtensionDataReference/config-reference.md)
+* Frequently asked questions
+  * [Does the Edge mobile extension support offline tracking and how does it work](./Advanced/FAQ/events-persistence.md)
+  * [Does Edge mobile extension support Edge environments](Advanced/FAQ/edge-network-environments.md)
+  * [How should my Edge request look like](Advanced/FAQ/edge-network-apis-integration.md)
+
+### Contributing to this repo
+  * [Contributing guidelines](../.github/CONTRIBUTING.md)
+  * [Code style](Contributing/code-style.md)
+  * [Release process](Contributing/release-process.md)
+  * [Testing strategy](Contributing/testing-strategy.md)
