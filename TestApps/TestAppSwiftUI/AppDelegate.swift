@@ -41,16 +41,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         MobileCore.registerExtensions(extensions) {
             MobileCore.configureWith(appId: self.LAUNCH_ENVIRONMENT_FILE_ID)
             if appState != .background {
-                MobileCore.lifecycleStart(additionalContextData: ["appState": appState.rawValue, "didFinishLaunchingWithOptions": "data"])
+                MobileCore.lifecycleStart(additionalContextData: ["appState": "notBackground", "didFinishLaunchingWithOptions": "data"])
             }
         }
         
-        registerForPushNotifications(application)
+      //  registerForPushNotifications(application)
 //        Assurance.startSession(url: URL(string: "adobeassurance://?adb_validation_sessionid=1be92129-2569-469c-81f2-59ad1f43736b"))
-        let collectConsent = ["collect": ["val": "y"]]
-        let currentConsents = ["consents": collectConsent]
-        Consent.update(with: currentConsents)
+//        let collectConsent = ["collect": ["val": "y"]]
+//        let currentConsents = ["consents": collectConsent]
+//        Consent.update(with: currentConsents)
 
+//        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["didFinishLaunchingWithOptions": "received"]))
         
         return true
     }
@@ -77,6 +78,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
         let token = tokenParts.joined()
         print("Device token is - \(token)")
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["didRegisterForRemoteNotificationsWithDeviceToken": "received"]))
     }
     
     func application(_ application: UIApplication,
@@ -85,33 +87,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Handle the silent notifications received from AJO in here
         print("silent notification received")
         
-        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm:
-        ["eventType": "didReceiveRemoteNotification-silentnotification"]))
+        UIApplication.shared.beginBackgroundTask(withName: "TestBG",
+                                          expirationHandler: {
+            sleep(30)
+            Edge.sendEvent(experienceEvent: ExperienceEvent(xdm:
+            ["eventType": "didReceiveRemoteNotification-silentnotification"]))
+        })
         
-        completionHandler(.noData)
+        completionHandler(.newData)
       }
     
     func userNotificationCenter(_: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
 
-        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["eventType": "userNotificationCenter"]))
-        Messaging.handleNotificationResponse(response, urlHandler: { url in
-            /// return `true` if the app is handling the url or `false` if the Adobe SDK should handle it
-            let appHandlesUrl = false
-            return appHandlesUrl
-        }, closure: { pushTrackingStatus in
-            Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: 
-                ["eventType": "userNotificationCenter-handleremoteresponse",
-                "pushTrackingStatus": pushTrackingStatus.rawValue]))
-            if pushTrackingStatus == .trackingInitiated {
-                // tracking was successful
-                
-            } else {
-                // tracking failed, view the status for more information
-
-            }
-        })
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["userNotificationCenter": "received"]))
+//        Messaging.handleNotificationResponse(response, urlHandler: { url in
+//            /// return `true` if the app is handling the url or `false` if the Adobe SDK should handle it
+//            let appHandlesUrl = false
+//            return appHandlesUrl
+//        }, closure: { pushTrackingStatus in
+//            Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: 
+//                ["eventType": "userNotificationCenter-handleremoteresponse",
+//                "pushTrackingStatus": pushTrackingStatus.rawValue]))
+//            if pushTrackingStatus == .trackingInitiated {
+//                // tracking was successful
+//                
+//            } else {
+//                // tracking failed, view the status for more information
+//
+//            }
+//        })
 
         completionHandler()
     }

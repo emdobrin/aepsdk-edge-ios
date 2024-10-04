@@ -16,6 +16,7 @@ import AEPAssurance
 import SwiftUI
 import UIKit
 import AEPCore
+import AEPEdge
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -36,6 +37,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             self.window = window
             window.makeKeyAndVisible()
         }
+        
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneWillConnectTo": "received"]))
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -48,6 +51,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneDidBecomeActive": "received"]))
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
@@ -59,6 +63,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the background to the foreground.
         // Use this method to undo the changes made on entering the background.
         MobileCore.lifecycleStart(additionalContextData: ["sceneWillEnterForeground": "data"])
+        
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneWillEnterForeground": "received"]))
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
@@ -66,6 +72,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
         MobileCore.lifecyclePause()
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneDidEnterBackground": "received"]))
     }
 
     @available(iOS 13.0, *)
