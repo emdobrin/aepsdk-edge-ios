@@ -34,17 +34,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Override point for customization after application launch.
         MobileCore.setLogLevel(.trace)
         
-        var extensions: [NSObject.Type] = [Edge.self, Identity.self, Consent.self, Messaging.self, Lifecycle.self, Assurance.self]
+        let extensions: [NSObject.Type] = 
+        [Edge.self, Identity.self, Consent.self,
+        Messaging.self, Lifecycle.self, Assurance.self]
 
         MobileCore.registerExtensions(extensions) {
             MobileCore.configureWith(appId: self.LAUNCH_ENVIRONMENT_FILE_ID)
             if appState != .background {
-                MobileCore.lifecycleStart(additionalContextData: ["appState": appState.rawValue])
+                MobileCore.lifecycleStart(additionalContextData: ["appState": appState.rawValue, "didFinishLaunchingWithOptions": "data"])
             }
         }
         
         registerForPushNotifications(application)
-        Assurance.startSession(url: URL(string: "adobeassurance://?adb_validation_sessionid=1be92129-2569-469c-81f2-59ad1f43736b"))
+//        Assurance.startSession(url: URL(string: "adobeassurance://?adb_validation_sessionid=1be92129-2569-469c-81f2-59ad1f43736b"))
+        let collectConsent = ["collect": ["val": "y"]]
+        let currentConsents = ["consents": collectConsent]
+        Consent.update(with: currentConsents)
+
         
         return true
     }
@@ -73,19 +79,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         print("Device token is - \(token)")
     }
     
+    func application(_ application: UIApplication,
+               didReceiveRemoteNotification userInfo: [AnyHashable : Any],
+               fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // Handle the silent notifications received from AJO in here
+        print("silent notification received")
+        
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm:
+        ["eventType": "didReceiveRemoteNotification-silentnotification"]))
+        
+        completionHandler(.noData)
+      }
+    
     func userNotificationCenter(_: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
 
+        Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["eventType": "userNotificationCenter"]))
         Messaging.handleNotificationResponse(response, urlHandler: { url in
             /// return `true` if the app is handling the url or `false` if the Adobe SDK should handle it
             let appHandlesUrl = false
             return appHandlesUrl
         }, closure: { pushTrackingStatus in
+            Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: 
+                ["eventType": "userNotificationCenter-handleremoteresponse",
+                "pushTrackingStatus": pushTrackingStatus.rawValue]))
             if pushTrackingStatus == .trackingInitiated {
                 // tracking was successful
+                
             } else {
                 // tracking failed, view the status for more information
+
             }
         })
 
@@ -98,6 +122,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Ask for user permission
         center.requestAuthorization(options: [.badge, .sound, .alert]) { [weak self] granted, _ in
             guard granted else { return }
+            
+            let pushConsent = ["marketing": 
+                                ["push": ["val": "y"], "preferred": "push"]]
+            let currentConsents = ["consents": pushConsent]
+            Consent.update(with: currentConsents)
             
             center.delegate = self
             
