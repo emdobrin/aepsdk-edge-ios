@@ -44,6 +44,8 @@ target 'TestAppiOS' do
   core_pods
   edge_pods
   pod 'AEPAssurance'
+  pod 'AEPMessaging'
+  pod 'AEPLifecycle'
 end
 
 target 'TestApptvOS' do

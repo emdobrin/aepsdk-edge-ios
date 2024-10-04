@@ -14,6 +14,8 @@ import AEPCore
 import AEPEdge
 import AEPEdgeConsent
 import AEPEdgeIdentity
+import AEPMessaging
+import AEPLifecycle
 import Compression
 import UIKit
 
@@ -22,21 +24,28 @@ import AEPAssurance
 #endif
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     // TODO: Set up the Environment File ID from your Launch property for the preferred environment
-    private let LAUNCH_ENVIRONMENT_FILE_ID = ""
+    //private let LAUNCH_ENVIRONMENT_FILE_ID = "94f571f308d5/258cde3c1a94/launch-8a790844d1cf-development" -> Obu mobile 5
+    private let LAUNCH_ENVIRONMENT_FILE_ID = "3149c49c3910/b19839a8ba5d/launch-65f55c308bd9-development" // -> AEM Assets departmental
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        let appState = application.applicationState
         // Override point for customization after application launch.
         MobileCore.setLogLevel(.trace)
-        MobileCore.configureWith(appId: LAUNCH_ENVIRONMENT_FILE_ID)
-        var extensions: [NSObject.Type] = [Edge.self, Identity.self, Consent.self]
+        
+        var extensions: [NSObject.Type] = [Edge.self, Identity.self, Consent.self, Messaging.self, Lifecycle.self, Assurance.self]
 
-        // MARK: TODO remove this once Assurance has tvOS support.
-        #if os(iOS)
-        extensions.append(contentsOf: [Assurance.self])
-        #endif
-        MobileCore.registerExtensions(extensions)
+        MobileCore.registerExtensions(extensions) {
+            MobileCore.configureWith(appId: self.LAUNCH_ENVIRONMENT_FILE_ID)
+            if appState != .background {
+                MobileCore.lifecycleStart(additionalContextData: ["appState": appState.rawValue])
+            }
+        }
+        
+        registerForPushNotifications(application)
+        Assurance.startSession(url: URL(string: "adobeassurance://?adb_validation_sessionid=1be92129-2569-469c-81f2-59ad1f43736b"))
+        
         return true
     }
 
@@ -54,5 +63,47 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Assurance.startSession(url: url)
         #endif
         return true
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        MobileCore.setPushIdentifier(deviceToken)
+        
+        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
+        let token = tokenParts.joined()
+        print("Device token is - \(token)")
+    }
+    
+    func userNotificationCenter(_: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+
+        Messaging.handleNotificationResponse(response, urlHandler: { url in
+            /// return `true` if the app is handling the url or `false` if the Adobe SDK should handle it
+            let appHandlesUrl = false
+            return appHandlesUrl
+        }, closure: { pushTrackingStatus in
+            if pushTrackingStatus == .trackingInitiated {
+                // tracking was successful
+            } else {
+                // tracking failed, view the status for more information
+            }
+        })
+
+        completionHandler()
+    }
+    
+    // MARK: - Push Notification registration methods
+    func registerForPushNotifications(_ application : UIApplication) {
+        let center = UNUserNotificationCenter.current()
+        // Ask for user permission
+        center.requestAuthorization(options: [.badge, .sound, .alert]) { [weak self] granted, _ in
+            guard granted else { return }
+            
+            center.delegate = self
+            
+            DispatchQueue.main.async {
+                application.registerForRemoteNotifications()
+            }
+        }
     }
 }
