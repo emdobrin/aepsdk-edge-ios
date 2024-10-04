@@ -45,7 +45,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
         
-      //  registerForPushNotifications(application)
+        registerForPushNotifications(application)
 //        Assurance.startSession(url: URL(string: "adobeassurance://?adb_validation_sessionid=1be92129-2569-469c-81f2-59ad1f43736b"))
 //        let collectConsent = ["collect": ["val": "y"]]
 //        let currentConsents = ["consents": collectConsent]
