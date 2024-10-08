@@ -194,8 +194,6 @@ class EdgeNetworkService {
                                     streaming: Streaming?,
                                     responseCallback: ResponseCallback,
                                     completion: @escaping (Bool, TimeInterval?) -> Void) {
-        
-        //var localResponseCode = 429
 
         switch responseCode {
         case HttpResponseCodes.ok.rawValue:

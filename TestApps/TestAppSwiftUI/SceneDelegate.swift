@@ -13,10 +13,10 @@
 #if os(iOS)
 import AEPAssurance
 #endif
-import SwiftUI
-import UIKit
 import AEPCore
 import AEPEdge
+import SwiftUI
+import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -37,7 +37,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             self.window = window
             window.makeKeyAndVisible()
         }
-        
+
         Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneWillConnectTo": "received"]))
     }
 
@@ -63,7 +63,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the background to the foreground.
         // Use this method to undo the changes made on entering the background.
         MobileCore.lifecycleStart(additionalContextData: ["sceneWillEnterForeground": "data"])
-        
         Edge.sendEvent(experienceEvent: ExperienceEvent(xdm: ["sceneWillEnterForeground": "received"]))
     }
 
